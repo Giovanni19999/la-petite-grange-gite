@@ -415,6 +415,13 @@ fn is_safe_link(link: &str) -> bool {
 }
 
 impl Block {
+    /// Languages in which the block has at least one non-empty text.
+    fn languages_with_text(&self) -> impl Iterator<Item = Lang> + '_ {
+        Lang::ALL
+            .into_iter()
+            .filter(|lang| self.texts(*lang).iter().any(|text| !text.trim().is_empty()))
+    }
+
     /// Texts of the block in one language (stored value, without fallback).
     fn texts(&self, lang: Lang) -> Vec<&str> {
         match &self.kind {
@@ -487,7 +494,10 @@ impl ChangeSummary {
             .collect();
         for block in &draft.blocks {
             match old.get(block.id.as_str()) {
-                None => summary.blocks_added.push(block.id.clone()),
+                None => {
+                    summary.blocks_added.push(block.id.clone());
+                    summary.languages.extend(block.languages_with_text());
+                }
                 Some(previous) if *previous != block => {
                     summary.blocks_changed.push(block.id.clone());
                     for lang in Lang::ALL {
@@ -502,6 +512,7 @@ impl ChangeSummary {
         for block in &published.blocks {
             if !new.contains_key(block.id.as_str()) {
                 summary.blocks_removed.push(block.id.clone());
+                summary.languages.extend(block.languages_with_text());
             }
         }
         let kept_order = |blocks: &[Block], other: &HashMap<&str, &Block>| -> Vec<String> {
@@ -678,7 +689,8 @@ mod tests {
         assert_eq!(summary.blocks_changed, vec!["a"]);
         assert!(!summary.blocks_moved);
         assert!(!summary.settings_changed);
-        assert_eq!(summary.languages, [Lang::En].into_iter().collect());
+        // "a" changed in English, "d" added with French text, "b" removed (French and English).
+        assert_eq!(summary.languages, Lang::ALL.into_iter().collect());
     }
 
     #[test]

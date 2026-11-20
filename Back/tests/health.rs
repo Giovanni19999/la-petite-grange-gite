@@ -43,6 +43,12 @@ fn app(database_reachable: bool) -> axum::Router {
             reachable: database_reachable,
         }),
         auth: Arc::new(auth),
+        pages: Arc::new(gite_api::application::pages::PageService::new(
+            Arc::new(gite_api::infrastructure::pages::MariaDbPages::new(
+                pool.clone(),
+            )),
+            Arc::new(gite_api::infrastructure::auth::SystemClock),
+        )),
         trust_proxy_headers: false,
     })
 }

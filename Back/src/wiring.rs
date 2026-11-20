@@ -11,12 +11,14 @@ use sqlx::MySqlPool;
 use crate::app_state::AppState;
 use crate::application::admin_accounts::AdminAccounts;
 use crate::application::auth::{AuthPorts, AuthService, LoginThrottle};
+use crate::application::pages::PageService;
 use crate::config::Config;
 use crate::domain::auth::SessionPolicy;
 use crate::infrastructure::auth::{
     Argon2Hasher, MariaDbSessions, MariaDbUsers, OsRandom, SystemClock,
 };
 use crate::infrastructure::mariadb::{MariaDbProbe, lazy_pool, migrate};
+use crate::infrastructure::pages::MariaDbPages;
 
 /// What to do when the migrations cannot be applied at startup.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +136,10 @@ pub fn app_state(
     Ok(AppState {
         database: Arc::new(MariaDbProbe::new(pool.clone())),
         auth: Arc::new(auth_service(pool, policy, throttle)?),
+        pages: Arc::new(PageService::new(
+            Arc::new(MariaDbPages::new(pool.clone())),
+            Arc::new(SystemClock),
+        )),
         trust_proxy_headers: false,
     })
 }
