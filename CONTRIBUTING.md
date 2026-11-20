@@ -27,3 +27,12 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 cargo deny check
 ```
+
+```bash
+cd Front
+npm run lint
+npm run format:check
+npm run test:ci
+npm run build && npm run check:ssr
+npm run licenses
+```

@@ -1,4 +1,4 @@
-# Git hooks (https://lefthook.dev). Install once: `lefthook install`.
+# Git hooks (https://lefthook.dev), found automatically in .config/. Install once: `lefthook install`.
 pre-commit:
   parallel: true
   commands:
@@ -12,9 +12,20 @@ pre-commit:
       glob: "Back/**/*.rs"
       root: "Back/"
       run: cargo clippy --all-targets -- -D warnings
+    front-format:
+      glob: "Front/**/*.{ts,html,css,json}"
+      root: "Front/"
+      run: npx prettier --check {staged_files}
+    front-lint:
+      glob: "Front/**/*.{ts,html}"
+      root: "Front/"
+      run: npx ng lint
 
 pre-push:
   commands:
     back-tests:
       root: "Back/"
       run: cargo test --all-targets
+    front-tests:
+      root: "Front/"
+      run: npm run test:ci

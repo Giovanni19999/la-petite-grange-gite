@@ -8,8 +8,15 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
 
+# Back (Rust)
 [*.rs]
 indent_size = 4
 
+# Front (Angular), same as Front/.prettierrc
+[*.ts]
+quote_type = single
+max_line_length = 100
+
 [*.md]
+max_line_length = off
 trim_trailing_whitespace = false
