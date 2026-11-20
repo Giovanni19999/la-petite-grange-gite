@@ -5,7 +5,7 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | Id | Feature | Status | ADR |
 |---|---|---|---|
 | [F000](F000-backend-foundation.md) | Backend foundation: configuration, health check, error format | implemented | 0002, 0003, 0010 |
-| [F001](F001-admin-auth.md) | Owner authentication (admin login) | frozen | 0011 |
+| [F001](F001-admin-auth.md) | Owner authentication (admin login) | implemented | 0011 |
 | F002 | Public pages built from blocks (FR/EN), draft/publish with confirmation | draft | 0009 |
 | F003 | Media library (upload, resize, crop, focal point, alt text) | draft | 0009 |
 | F004 | Availability calendar with the nightly price under each free date | draft | 0005, 0008 |
