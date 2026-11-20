@@ -84,6 +84,11 @@ describe('F024 carousel', () => {
     );
   const loadedImages = (root: HTMLElement) =>
     Array.from(root.querySelectorAll('img')).map((img) => img.getAttribute('src'));
+  /** Arrow key pressed on the focused carousel. */
+  const key = (root: HTMLElement, name: 'ArrowLeft' | 'ArrowRight') =>
+    root
+      .querySelector('[role="region"]')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: name }));
   const button = (root: HTMLElement, label: string) =>
     root.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
 
@@ -92,7 +97,7 @@ describe('F024 carousel', () => {
     await fixture.whenStable();
   }
 
-  it('F024-S02 scrolls by itself and the pause button stops it', async () => {
+  it('F024-S02 scrolls by itself, and stops while it has the keyboard focus', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     const root = await render(true);
     expect(current(root)).toBe(0);
@@ -100,11 +105,30 @@ describe('F024 carousel', () => {
     await tick(6000);
     expect(current(root)).toBe(1);
 
-    root.querySelector<HTMLButtonElement>('[data-testid="pause"]')!.click();
+    root.querySelector('[role="region"]')!.dispatchEvent(new FocusEvent('focusin'));
     await fixture.whenStable();
     await tick(12_000);
     expect(current(root)).toBe(1);
-    expect(root.querySelector('[data-testid="pause"]')?.textContent).toContain('Lecture');
+  });
+
+  it('F024-S02 has neither on-screen arrows nor a pause button', async () => {
+    const root = await render(true);
+    expect(root.querySelector('[data-testid="pause"]')).toBeNull();
+    expect(button(root, 'Photo suivante')).toBeNull();
+    expect(button(root, 'Photo précédente')).toBeNull();
+    expect(root.querySelectorAll('[data-testid="dot"]')).toHaveLength(4);
+  });
+
+  it('F024-S02 waits a full delay again after the visitor moves', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const root = await render(true);
+    await tick(5000);
+    button(root, 'Photo 3 sur 4').click();
+    await fixture.whenStable();
+    await tick(5000);
+    expect(current(root)).toBe(2);
+    await tick(1000);
+    expect(current(root)).toBe(3);
   });
 
   it('F024-S02 stops while the pointer is over it', async () => {
@@ -121,21 +145,19 @@ describe('F024 carousel', () => {
     const root = await render(true, true);
     await tick(20_000);
     expect(current(root)).toBe(0);
-    expect(root.querySelector('[data-testid="pause"]')).toBeNull();
-
-    button(root, 'Photo suivante').click();
+    key(root, 'ArrowRight');
     await fixture.whenStable();
     expect(current(root)).toBe(1);
   });
 
-  it('F024-S05 arrows, dots, keyboard and swipe move between photos', async () => {
+  it('F024-S05 dots, keyboard and swipe move between photos', async () => {
     const root = await render(false);
-    button(root, 'Photo suivante').click();
+    key(root, 'ArrowRight');
     await fixture.whenStable();
     expect(current(root)).toBe(1);
 
-    button(root, 'Photo précédente').click();
-    button(root, 'Photo précédente').click();
+    key(root, 'ArrowLeft');
+    key(root, 'ArrowLeft');
     await fixture.whenStable();
     expect(current(root)).toBe(3); // wraps around
 
@@ -182,6 +204,35 @@ describe('F024 carousel', () => {
     expect(current(root)).toBe(3); // backwards, wraps around
   });
 
+  it('F024-S05 loops without rewinding: past the last photo it slides on to the first', async () => {
+    const root = await render(false);
+    const track = root.querySelector('[role="region"]')!.firstElementChild as HTMLElement;
+    const copies = () => root.querySelectorAll('[data-testid="slide-copy"]');
+    expect(copies()).toHaveLength(2);
+
+    // From the first photo backwards: slides to the copy of the last photo, on the left.
+    key(root, 'ArrowLeft');
+    await fixture.whenStable();
+    expect(current(root)).toBe(3);
+    expect(track.style.transform).toContain('(0%');
+    expect(copies()[0].querySelector('img')?.getAttribute('src')).toBe('/uploads/p4-960.webp');
+
+    // Once the slide is over, jumps without animation to the real last photo.
+    track.dispatchEvent(new Event('transitionend'));
+    await fixture.whenStable();
+    expect(track.style.transform).toContain('-400%');
+    expect(track.classList).not.toContain('transition-transform');
+
+    // From the last photo forwards: slides on to the copy of the first photo, on the right.
+    key(root, 'ArrowRight');
+    await fixture.whenStable();
+    expect(current(root)).toBe(0);
+    expect(track.style.transform).toContain('-500%');
+    track.dispatchEvent(new Event('transitionend'));
+    await fixture.whenStable();
+    expect(track.style.transform).toContain('-100%');
+  });
+
   it('F024-S05 a carousel block does not scroll unless asked', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     const root = await render(false);
@@ -195,7 +246,7 @@ describe('F024 carousel', () => {
     expect(loadedImages(root)).toEqual(['/uploads/p1-960.webp']);
     expect(root.querySelector('figcaption')?.textContent).toContain('La grange');
 
-    button(root, 'Photo suivante').click();
+    key(root, 'ArrowRight');
     await fixture.whenStable();
     expect(loadedImages(root)).toEqual(['/uploads/p1-960.webp', '/uploads/p2-960.webp']);
   });
