@@ -1,7 +1,7 @@
 ---
 id: F000
 title: "Backend foundation: configuration, health check, error format"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0010]
 ---

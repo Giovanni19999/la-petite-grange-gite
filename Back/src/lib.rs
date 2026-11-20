@@ -7,8 +7,10 @@
 //! * [`infrastructure`]: adapters (`MariaDB`, providers…).
 //! * [`http`]: axum routes, DTOs and error mapping only.
 
+pub mod app_state;
 pub mod application;
 pub mod config;
 pub mod domain;
 pub mod http;
 pub mod infrastructure;
+pub mod telemetry;
