@@ -10,7 +10,7 @@ import { RouterLink } from '@angular/router';
     <section class="mx-auto flex max-w-xl flex-col items-center gap-4 px-4 py-16 text-center">
       <h1 class="text-2xl font-semibold">Page introuvable</h1>
       <p class="text-muted-foreground">Cette page n'existe pas ou a été déplacée.</p>
-      <a routerLink="/" class="text-primary font-medium underline underline-offset-4">
+      <a routerLink="/" class="font-medium text-primary underline underline-offset-4">
         Retour à l'accueil
       </a>
     </section>

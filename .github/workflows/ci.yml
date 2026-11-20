@@ -47,6 +47,34 @@ jobs:
         with:
           manifest-path: Back/Cargo.toml
 
+  front:
+    name: Front (lint, format, tests, build, SSR, licenses)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Front
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: Front/.nvmrc
+          cache: npm
+          cache-dependency-path: Front/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Format
+        run: npm run format:check
+      - name: Unit tests
+        run: npm run test:ci
+      - name: Build (SSR + pre-rendering)
+        run: npm run build
+      - name: SSR and theme checks
+        run: npm run check:ssr
+      - name: Licenses
+        run: npm run licenses
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest

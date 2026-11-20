@@ -10,7 +10,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
       <p class="text-muted-foreground">Gîte classé 3 étoiles</p>
       <a
         href="#reserver"
-        class="bg-primary text-primary-foreground focus-visible:ring-ring rounded-md px-6 py-3 font-medium shadow-sm transition hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
+        class="rounded-md bg-primary px-6 py-3 font-medium text-primary-foreground shadow-sm transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         Réserver
       </a>

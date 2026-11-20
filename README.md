@@ -5,14 +5,14 @@
 
 Website of a 3-star holiday cottage in France: bilingual showcase (FR/EN), **instant direct booking** confirmed by an online deposit, and a mobile-first admin that lets non-technical owners manage pages, photos, prices per channel, calendar, bookings, reviews and automatic messages. Airbnb and Booking.com stay in place, synchronised through a channel manager.
 
-> Work in progress: the backend foundation is in place; features are delivered one by one, each frozen in `docs/features/` before being coded.
+> Work in progress (v0.1): the backend and frontend foundations are in place; features are delivered one by one, each frozen in `docs/features/` before being coded.
 
 ## Stack
 
 | Part | Technologies |
 |---|---|
 | Back | Rust, axum, tokio, sqlx, MariaDB 11, tracing — hexagonal architecture (ports and adapters) |
-| Front (planned) | Angular SSR, spartan/ui, Tailwind CSS v4 |
+| Front | Angular 22 (SSR, standalone, signals), spartan/ui, Tailwind CSS v4, Vitest, ESLint, Prettier |
 | External services | payment provider (Stripe, Mollie…) and channel manager (Beds24…) selected by configuration, iCal fallback |
 | Quality | clippy pedantic, rustfmt, unit and acceptance tests, cargo-deny (licenses, advisories), gitleaks, GitHub Actions |
 
@@ -44,10 +44,23 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
+## Run the front end locally
+
+Requirements: Node.js 26 LTS (see `Front/.nvmrc`).
+
+```bash
+cd Front
+npm ci
+npm start                   # http://localhost:4200, /api proxied to the API on :8080
+```
+
+Checks: `npm run lint`, `npm run format:check`, `npm run test:ci`, `npm run build && npm run check:ssr`, `npm run licenses`.
+
 ## Repository layout
 
 ```
 Back/   Rust API (domain, application, infrastructure, http)
+Front/  Angular SSR application (public site and admin)
 docs/   architecture, ADRs, feature sheets
 ```
 

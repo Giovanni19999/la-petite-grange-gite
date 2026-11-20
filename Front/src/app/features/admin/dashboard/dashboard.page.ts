@@ -7,7 +7,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   template: `
     <section class="mx-auto max-w-3xl px-4 py-10">
       <h1 class="text-2xl font-semibold">Espace administrateur</h1>
-      <p class="text-muted-foreground mt-2">En construction.</p>
+      <p class="mt-2 text-muted-foreground">En construction.</p>
     </section>
   `,
 })

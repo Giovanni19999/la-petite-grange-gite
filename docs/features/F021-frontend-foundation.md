@@ -1,7 +1,7 @@
 ---
 id: F021
 title: "Frontend foundation: Angular SSR, light blue theme, public and admin areas"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0004]
 ---
@@ -58,10 +58,10 @@ Feature: Frontend foundation
 
 | Scenario | Test |
 |---|---|
-| F021-S01 | `Front` SSR render test (`app.config.server` render of `/`) |
-| F021-S02 | `src/styles.css` declares `color-scheme: light`; theme test |
-| F021-S03 | `app.routes.spec.ts` |
-| F021-S04 | `app.routes.spec.ts` |
+| F021-S01 | `Front/scripts/check-ssr.mjs` (after the production build) |
+| F021-S02 | `Front/scripts/check-ssr.mjs` (built stylesheet and HTML) |
+| F021-S03 | `Front/src/app/app.routes.spec.ts` |
+| F021-S04 | `Front/src/app/app.routes.spec.ts` |
 
 ## Changelog
 
