@@ -128,6 +128,25 @@ pub enum Ratio {
     Third,
 }
 
+/// Hero background: one fixed photo or several photos that scroll (F024).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HeroMode {
+    #[default]
+    Image,
+    Carousel,
+}
+
+/// Width of an image block (F024).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageWidth {
+    Narrow,
+    #[default]
+    Wide,
+    Full,
+}
+
 /// One item of a `columns` block.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -160,6 +179,16 @@ pub enum BlockKind {
         /// Darkening of the image, in percent.
         #[serde(default)]
         darken: u8,
+        /// Fixed photo (`image`) or carousel (`images`), F024.
+        #[serde(default)]
+        mode: HeroMode,
+        #[serde(default)]
+        images: Vec<MediaId>,
+        #[serde(default = "default_true")]
+        autoplay: bool,
+        /// Seconds between two photos of the carousel.
+        #[serde(default = "default_interval")]
+        interval: u8,
     },
     Text {
         #[serde(default)]
@@ -188,6 +217,25 @@ pub enum BlockKind {
         #[serde(default = "default_gallery_columns")]
         columns: u8,
     },
+    /// One photo with its caption (F024).
+    Image {
+        #[serde(default)]
+        image: Option<MediaId>,
+        #[serde(default)]
+        width: ImageWidth,
+    },
+    /// Photos that scroll (F024).
+    Carousel {
+        #[serde(default)]
+        images: Vec<MediaId>,
+        #[serde(default)]
+        height: HeroHeight,
+        #[serde(default)]
+        autoplay: bool,
+        /// Seconds between two photos.
+        #[serde(default = "default_interval")]
+        interval: u8,
+    },
 }
 
 fn default_gallery_columns() -> u8 {
@@ -196,6 +244,10 @@ fn default_gallery_columns() -> u8 {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_interval() -> u8 {
+    DEFAULT_INTERVAL
 }
 
 /// A block of a page. Unknown fields are rejected by [`BlockKind`], which receives every
@@ -258,12 +310,35 @@ pub enum ContentError {
     Darken(String),
     #[error("lien du bouton invalide dans le bloc « {0} »")]
     ButtonLink(String),
+    #[error("le carrousel « {block} » doit contenir de {min} à {max} photos")]
+    CarouselPhotos {
+        block: String,
+        min: usize,
+        max: usize,
+    },
+    #[error("le délai du carrousel « {0} » doit être entre 3 et 15 secondes")]
+    CarouselInterval(String),
 }
 
 /// Maximum darkening of a hero image (readability of the text on top).
 pub const MAX_DARKEN: u8 = 80;
+/// Number of photos of a hero carousel (F024).
+pub const HERO_CAROUSEL_PHOTOS: std::ops::RangeInclusive<usize> = 2..=10;
+/// Number of photos of a carousel block (F024).
+pub const CAROUSEL_PHOTOS: std::ops::RangeInclusive<usize> = 2..=20;
+/// Seconds between two photos of a carousel (F024).
+pub const CAROUSEL_INTERVAL: std::ops::RangeInclusive<u8> = 3..=15;
+const DEFAULT_INTERVAL: u8 = 6;
 const SLUG_MAX_LEN: usize = 80;
 const BLOCK_ID_MAX_LEN: usize = 40;
+
+fn carousel_photos(block: &str, range: &std::ops::RangeInclusive<usize>) -> ContentError {
+    ContentError::CarouselPhotos {
+        block: block.to_owned(),
+        min: *range.start(),
+        max: *range.end(),
+    }
+}
 
 /// Checks a slug: lower-case letters, digits and single hyphens.
 #[must_use]
@@ -307,10 +382,15 @@ impl PageContent {
         let mut ids = Vec::new();
         for block in &self.blocks {
             let used: Vec<MediaId> = match &block.kind {
-                BlockKind::Hero { image, .. } | BlockKind::TextImage { image, .. } => {
+                BlockKind::Hero { image, images, .. } => {
+                    image.iter().chain(images.iter()).copied().collect()
+                }
+                BlockKind::TextImage { image, .. } | BlockKind::Image { image, .. } => {
                     image.iter().copied().collect()
                 }
-                BlockKind::Gallery { images, .. } => images.clone(),
+                BlockKind::Gallery { images, .. } | BlockKind::Carousel { images, .. } => {
+                    images.clone()
+                }
                 BlockKind::Text { .. } | BlockKind::Columns { .. } => Vec::new(),
             };
             for id in used {
@@ -367,13 +447,34 @@ impl PageContent {
                 BlockKind::Gallery { columns, .. } if !(2..=4).contains(columns) => {
                     errors.push(ContentError::GalleryColumns(block.id.clone()));
                 }
+                BlockKind::Carousel {
+                    images, interval, ..
+                } => {
+                    if !CAROUSEL_PHOTOS.contains(&images.len()) {
+                        errors.push(carousel_photos(&block.id, &CAROUSEL_PHOTOS));
+                    }
+                    if !CAROUSEL_INTERVAL.contains(interval) {
+                        errors.push(ContentError::CarouselInterval(block.id.clone()));
+                    }
+                }
                 BlockKind::Hero {
                     darken,
                     button_link,
+                    mode,
+                    images,
+                    interval,
                     ..
                 } => {
                     if *darken > MAX_DARKEN {
                         errors.push(ContentError::Darken(block.id.clone()));
+                    }
+                    if *mode == HeroMode::Carousel {
+                        if !HERO_CAROUSEL_PHOTOS.contains(&images.len()) {
+                            errors.push(carousel_photos(&block.id, &HERO_CAROUSEL_PHOTOS));
+                        }
+                        if !CAROUSEL_INTERVAL.contains(interval) {
+                            errors.push(ContentError::CarouselInterval(block.id.clone()));
+                        }
                     }
                     if button_link
                         .as_deref()
@@ -419,7 +520,9 @@ impl PageContent {
                         item.body = rich(&item.body);
                     }
                 }
-                BlockKind::Gallery { .. } => {}
+                BlockKind::Gallery { .. }
+                | BlockKind::Image { .. }
+                | BlockKind::Carousel { .. } => {}
             }
         }
         self
@@ -459,7 +562,9 @@ impl Block {
                 .iter()
                 .flat_map(|item| [item.title.raw(lang), item.body.raw(lang)])
                 .collect(),
-            BlockKind::Gallery { .. } => Vec::new(),
+            BlockKind::Gallery { .. } | BlockKind::Image { .. } | BlockKind::Carousel { .. } => {
+                Vec::new()
+            }
         }
     }
 }
@@ -744,5 +849,94 @@ mod tests {
 
         assert_eq!(summary.blocks_added, vec!["a"]);
         assert!(summary.settings_changed);
+    }
+
+    #[test]
+    fn f024_s01_existing_hero_is_a_fixed_image() {
+        let content = PageContent::parse(&page(json!([
+            { "id": "h", "type": "hero", "image": 3, "title": { "fr": "Titre" } }
+        ])))
+        .unwrap();
+        let BlockKind::Hero {
+            mode,
+            images,
+            autoplay,
+            interval,
+            ..
+        } = &content.blocks[0].kind
+        else {
+            panic!("hero expected");
+        };
+        assert_eq!(*mode, HeroMode::Image);
+        assert!(images.is_empty());
+        assert!(*autoplay, "a hero carousel scrolls by default");
+        assert_eq!(*interval, 6);
+    }
+
+    #[test]
+    fn f024_s04_s05_image_and_carousel_blocks() {
+        let content = PageContent::parse(&page(json!([
+            { "id": "i", "type": "image", "image": 4, "width": "full" },
+            { "id": "c", "type": "carousel", "images": [5, 6, 7, 8], "height": "large" }
+        ])))
+        .unwrap();
+        assert_eq!(
+            content.blocks[0].kind,
+            BlockKind::Image {
+                image: Some(MediaId(4)),
+                width: ImageWidth::Full
+            }
+        );
+        let BlockKind::Carousel {
+            autoplay, interval, ..
+        } = &content.blocks[1].kind
+        else {
+            panic!("carousel expected");
+        };
+        assert!(!autoplay, "a carousel block does not scroll by default");
+        assert_eq!(*interval, 6);
+        assert_eq!(
+            content.media_ids(),
+            vec![MediaId(4), MediaId(5), MediaId(6), MediaId(7), MediaId(8)]
+        );
+    }
+
+    #[test]
+    fn f024_s06_invalid_carousels_are_refused() {
+        let errors = PageContent::parse(&page(json!([
+            { "id": "c", "type": "carousel", "images": [1] },
+            { "id": "h", "type": "hero", "mode": "carousel",
+              "images": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "interval": 20 }
+        ])))
+        .unwrap_err();
+        assert!(errors.contains(&ContentError::CarouselPhotos {
+            block: "c".into(),
+            min: 2,
+            max: 20
+        }));
+        assert!(errors.contains(&ContentError::CarouselPhotos {
+            block: "h".into(),
+            min: 2,
+            max: 10
+        }));
+        assert!(errors.contains(&ContentError::CarouselInterval("h".into())));
+        assert_eq!(
+            errors
+                .iter()
+                .find(|error| matches!(error, ContentError::CarouselPhotos { block, .. } if block == "c"))
+                .unwrap()
+                .to_string(),
+            "le carrousel « c » doit contenir de 2 à 20 photos"
+        );
+    }
+
+    #[test]
+    fn f024_hero_in_image_mode_ignores_the_carousel_rules() {
+        assert!(
+            PageContent::parse(&page(json!([
+                { "id": "h", "type": "hero", "mode": "image", "images": [1], "interval": 99 }
+            ])))
+            .is_ok()
+        );
     }
 }

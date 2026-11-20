@@ -12,7 +12,7 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::app_state::AppState;
 use crate::application::pages::{MenuEntry, PageError, PageId, PageVersion, StoredPage};
-use crate::domain::page::{Block, BlockKind, ChangeSummary, Lang, MediaId, PageContent};
+use crate::domain::page::{Block, BlockKind, ChangeSummary, HeroMode, Lang, MediaId, PageContent};
 use crate::http::auth::AdminUser;
 use crate::http::error::ApiError;
 use crate::http::media::{ImageMap, public_image};
@@ -131,6 +131,13 @@ fn image_json(id: Option<&MediaId>, images: &ImageMap, lang: Lang) -> Value {
         .map_or(Value::Null, |image| public_image(image, lang))
 }
 
+/// The images that still exist, in order (deleted ones are skipped).
+fn image_list(ids: &[MediaId], images: &ImageMap, lang: Lang) -> Vec<Value> {
+    ids.iter()
+        .filter_map(|id| images.get(id).map(|image| public_image(image, lang)))
+        .collect()
+}
+
 /// A block with its texts resolved in `lang` (English falls back to French) and its images
 /// resolved to their public files.
 fn public_block(block: &Block, lang: Lang, images: &ImageMap) -> Value {
@@ -144,11 +151,24 @@ fn public_block(block: &Block, lang: Lang, images: &ImageMap) -> Value {
             align,
             height,
             darken,
-        } => json!({
-            "type": "hero", "image": image_json(image.as_ref(), images, lang), "title": title.get(lang), "subtitle": subtitle.get(lang),
-            "button_label": button_label.get(lang), "button_link": button_link,
-            "align": align, "height": height, "darken": darken
-        }),
+            mode,
+            images: slides,
+            autoplay,
+            interval,
+        } => {
+            // Only what the chosen mode shows (F024).
+            let carousel = *mode == HeroMode::Carousel;
+            json!({
+                "type": "hero",
+                "mode": mode,
+                "image": if carousel { Value::Null } else { image_json(image.as_ref(), images, lang) },
+                "images": if carousel { image_list(slides, images, lang) } else { Vec::new() },
+                "autoplay": autoplay, "interval": interval,
+                "title": title.get(lang), "subtitle": subtitle.get(lang),
+                "button_label": button_label.get(lang), "button_link": button_link,
+                "align": align, "height": height, "darken": darken
+            })
+        }
         BlockKind::Text { body, width, align } => {
             json!({ "type": "text", "body": body.get(lang), "width": width, "align": align })
         }
@@ -173,13 +193,22 @@ fn public_block(block: &Block, lang: Lang, images: &ImageMap) -> Value {
         } => {
             json!({
                 "type": "gallery",
-                "images": gallery
-                    .iter()
-                    .filter_map(|id| images.get(id).map(|image| public_image(image, lang)))
-                    .collect::<Vec<_>>(),
+                "images": image_list(gallery, images, lang),
                 "columns": columns
             })
         }
+        BlockKind::Image { image, width } => json!({
+            "type": "image", "image": image_json(image.as_ref(), images, lang), "width": width
+        }),
+        BlockKind::Carousel {
+            images: slides,
+            height,
+            autoplay,
+            interval,
+        } => json!({
+            "type": "carousel", "images": image_list(slides, images, lang),
+            "height": height, "autoplay": autoplay, "interval": interval
+        }),
     };
     if let Value::Object(map) = &mut value {
         map.insert("id".into(), json!(block.id));

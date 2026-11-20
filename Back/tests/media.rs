@@ -343,3 +343,120 @@ async fn f003_s10_admin_only() {
         StatusCode::UNAUTHORIZED
     );
 }
+
+#[tokio::test]
+async fn f024_s01_s02_s04_s05_hero_carousel_image_and_carousel_blocks() {
+    let app = TestApp::start().await;
+    let cookie = app.owner_cookie().await;
+    let uploaded = upload_ok(
+        &app,
+        &cookie,
+        &[
+            ("a.jpg", jpeg(64, 48, 10)),
+            ("b.jpg", jpeg(64, 48, 80)),
+            ("c.jpg", jpeg(64, 48, 160)),
+            ("d.jpg", jpeg(64, 48, 240)),
+        ],
+    )
+    .await;
+    let ids: Vec<Value> = uploaded["uploaded"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|media| media["id"].clone())
+        .collect();
+
+    let page = json_body(app.get("/api/admin/pages/1", Some(&cookie)).await).await;
+    let mut draft = page["draft"].clone();
+    draft["blocks"][0]["mode"] = json!("carousel");
+    draft["blocks"][0]["images"] = json!([ids[0], ids[1], ids[2]]);
+    draft["blocks"][0]["image"] = ids[3].clone();
+    let blocks = draft["blocks"].as_array_mut().unwrap();
+    blocks.push(json!({ "id": "photo", "type": "image", "image": ids[3], "width": "full" }));
+    blocks.push(json!({ "id": "defile", "type": "carousel", "images": ids, "height": "large" }));
+    let saved = app
+        .send_json(
+            "PUT",
+            "/api/admin/pages/1/draft",
+            Some(&cookie),
+            &json!({ "draft_version": page["draft_version"], "content": draft }),
+        )
+        .await;
+    assert_eq!(saved.status(), StatusCode::OK);
+    let version = json_body(saved).await["draft_version"].clone();
+    let published = app
+        .send_json(
+            "POST",
+            "/api/admin/pages/1/publish",
+            Some(&cookie),
+            &json!({ "draft_version": version }),
+        )
+        .await;
+    assert_eq!(published.status(), StatusCode::NO_CONTENT);
+
+    let public = json_body(app.get("/api/pages/home?lang=fr", None).await).await;
+    let hero = &public["blocks"][0];
+    assert_eq!(hero["mode"], "carousel");
+    assert_eq!(
+        hero["image"],
+        Value::Null,
+        "the fixed image is not sent in carousel mode"
+    );
+    assert_eq!(hero["images"].as_array().unwrap().len(), 3);
+    assert_eq!(hero["autoplay"], true);
+    assert_eq!(hero["interval"], 6);
+
+    let blocks = public["blocks"].as_array().unwrap();
+    let image = blocks
+        .iter()
+        .find(|block| block["type"] == "image")
+        .unwrap();
+    assert_eq!(image["width"], "full");
+    assert_eq!(image["image"]["id"], ids[3]);
+    let carousel = blocks
+        .iter()
+        .find(|block| block["type"] == "carousel")
+        .unwrap();
+    assert_eq!(carousel["images"].as_array().unwrap().len(), 4);
+    assert_eq!(carousel["autoplay"], false);
+    assert_eq!(carousel["height"], "large");
+
+    // Every photo of a carousel counts as used (F003-S07).
+    let refused = app
+        .send_json(
+            "DELETE",
+            &format!("/api/admin/media/{}", ids[1]),
+            Some(&cookie),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn f024_s06_invalid_carousel_is_refused_with_a_message() {
+    let app = TestApp::start().await;
+    let cookie = app.owner_cookie().await;
+    let id =
+        upload_ok(&app, &cookie, &[("a.jpg", jpeg(64, 48, 10))]).await["uploaded"][0]["id"].clone();
+    let page = json_body(app.get("/api/admin/pages/1", Some(&cookie)).await).await;
+    let mut draft = page["draft"].clone();
+    draft["blocks"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({ "id": "c", "type": "carousel", "images": [id] }));
+    let response = app
+        .send_json(
+            "PUT",
+            "/api/admin/pages/1/draft",
+            Some(&cookie),
+            &json!({ "draft_version": page["draft_version"], "content": draft }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body = json_body(response).await;
+    assert_eq!(
+        body["error"]["details"][0],
+        "le carrousel « c » doit contenir de 2 à 20 photos"
+    );
+}
