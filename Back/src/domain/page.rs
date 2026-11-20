@@ -868,7 +868,7 @@ mod tests {
             panic!("hero expected");
         };
         assert_eq!(*mode, HeroMode::Image);
-        assert!(images.is_empty());
+        assert_eq!(*images, Vec::<MediaId>::new());
         assert!(*autoplay, "a hero carousel scrolls by default");
         assert_eq!(*interval, 6);
     }
