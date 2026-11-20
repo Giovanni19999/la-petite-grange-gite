@@ -1,7 +1,7 @@
 ---
 id: F002
 title: "Pages built from blocks: draft, publication, versions and public rendering (FR/EN)"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0009, ADR-0013, ADR-0002, ADR-0011]
 ---
@@ -99,15 +99,15 @@ Feature: Pages built from blocks
 
 | Scenario | Test |
 |---|---|
-| F002-S01 | `Back/tests/pages.rs::f002_s01_*`, `Front/src/app/features/public/page/*.spec.ts` |
+| F002-S01 | `Back/tests/pages.rs::f002_s01_*`, `Front/src/app/app.routes.spec.ts`, `deploy/smoke-test.sh` |
 | F002-S02 | `Back/tests/pages.rs::f002_s02_menu` |
-| F002-S03 | `Back/tests/pages.rs::f002_s03_unknown_page`, `Front` (404 status on the server) |
+| F002-S03 | `Back/tests/pages.rs::f002_s03_unknown_page`, `Front/src/app/app.routes.spec.ts`, `deploy/smoke-test.sh` (404 status) |
 | F002-S04 | `Back/tests/pages.rs::f002_s04_draft_not_public` |
 | F002-S05 | `Back/tests/pages.rs::f002_s05_publish` |
 | F002-S06 | `Back/tests/pages.rs::f002_s06_stale_draft` |
-| F002-S07 | `Back/src/domain/page.rs::tests::f002_s07_*` |
+| F002-S07 | `Back/src/domain/page.rs::tests::f002_s07_*`, `Back/tests/pages.rs::f002_s07_changes_endpoint` |
 | F002-S08 | `Back/tests/pages.rs::f002_s08_restore` |
-| F002-S09 | `Back/src/domain/page.rs::tests::f002_s09_*` |
+| F002-S09 | `Back/src/domain/page.rs::tests::f002_s09_*`, `Back/tests/pages.rs::f002_s09_*` |
 | F002-S10 | `Back/tests/pages.rs::f002_s10_admin_requires_session` |
 
 ## Changelog

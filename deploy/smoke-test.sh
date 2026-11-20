@@ -27,7 +27,9 @@ done
 
 health="$(curl -s "$BASE_URL/api/health")"
 check F022-S01 "API healthy through the proxy" grep -q '"database":"ok"' <<<"$health"
-check F022-S01 "home page pre-rendered" bash -c "curl -s '$BASE_URL/' | grep -q 'La Petite Grange</h1>'"
+check F022-S01 "home page rendered on the server (F002-S01)" bash -c "curl -s '$BASE_URL/' | grep -q 'La Petite Grange</h1>'"
+check F002-S01 "English page rendered on the server" bash -c "curl -s '$BASE_URL/en/the-cottage' | grep -q 'The cottage'"
+check F002-S03 "unknown page is 404" test "$(status_of /page-inconnue)" = "404"
 check F022-S02 "unknown page is 404" test "$(status_of /does-not-exist)" = "404"
 
 for service in api front; do
