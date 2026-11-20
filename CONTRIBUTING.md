@@ -42,6 +42,16 @@ Merge methods:
 
 After merging, the source branch is deleted (except `develop`).
 
+## Automatic back-merge of main into develop
+
+Every push to `main` (release or hotfix) triggers the [back-merge workflow](.github/workflows/back-merge.yml): `main` is merged into `develop` automatically. If the merge has conflicts, the workflow opens a pull request `chore/back-merge-…` → `develop` instead, to be resolved by hand and merged with a merge commit.
+
+One-time setup on GitHub:
+
+1. Create a fine-grained personal access token (Settings → Developer settings → Fine-grained tokens) limited to this repository, with **Contents: read and write** and **Pull requests: read and write**, and an expiry date.
+2. Add it as the repository secret `BACKMERGE_TOKEN` (repository Settings → Secrets and variables → Actions).
+3. In the `develop` protection rule, leave **Do not allow bypassing the above settings** unchecked, so the token of an administrator can push the merge.
+
 ## Local checks
 
 ```bash
