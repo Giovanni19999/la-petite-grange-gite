@@ -43,6 +43,7 @@ fn app(database_reachable: bool) -> axum::Router {
             reachable: database_reachable,
         }),
         auth: Arc::new(auth),
+        trust_proxy_headers: false,
     })
 }
 

@@ -97,6 +97,8 @@ pub struct Config {
     pub session_policy: SessionPolicy,
     /// Failed-login throttling (ADR-0011).
     pub login_throttle: LoginThrottle,
+    /// Trust `X-Forwarded-For` from the reverse proxy (true only behind it).
+    pub trust_proxy_headers: bool,
 }
 
 /// Configuration error, always naming the faulty variable.
@@ -197,6 +199,16 @@ impl Config {
                 defaults::SESSION_IDLE_DAYS,
             )?)),
         };
+        let trust_proxy_headers = match optional("TRUST_PROXY_HEADERS", "false").as_str() {
+            "true" => true,
+            "false" => false,
+            _ => {
+                return Err(ConfigError::Invalid {
+                    variable: "TRUST_PROXY_HEADERS",
+                    reason: "must be true or false".to_owned(),
+                });
+            }
+        };
         let login_throttle = LoginThrottle {
             max_failures: positive("LOGIN_MAX_FAILURES", defaults::LOGIN_MAX_FAILURES)? as usize,
             window: Duration::minutes(i64::from(positive(
@@ -213,6 +225,7 @@ impl Config {
             log_format,
             session_policy,
             login_throttle,
+            trust_proxy_headers,
         })
     }
 }
@@ -247,6 +260,7 @@ mod tests {
         assert_eq!(config.session_policy.idle_timeout, Duration::days(7));
         assert_eq!(config.login_throttle.max_failures, 5);
         assert_eq!(config.login_throttle.window, Duration::minutes(15));
+        assert!(!config.trust_proxy_headers);
     }
 
     #[test]

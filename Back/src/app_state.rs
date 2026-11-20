@@ -11,6 +11,8 @@ use crate::application::health::DatabaseProbe;
 pub struct AppState {
     pub database: Arc<dyn DatabaseProbe>,
     pub auth: Arc<AuthService>,
+    /// Read the client IP from `X-Forwarded-For` (only behind our reverse proxy).
+    pub trust_proxy_headers: bool,
 }
 
 impl fmt::Debug for AppState {

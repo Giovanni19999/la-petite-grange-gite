@@ -57,20 +57,88 @@ fn session_cookie(value: String, max_age: time::Duration) -> Cookie<'static> {
         .build()
 }
 
-/// Client IP from the TCP connection (forwarding by the reverse proxy is handled at deployment).
+/// Address of the client, used to throttle failed logins per IP.
+///
+/// Behind the reverse proxy (`TRUST_PROXY_HEADERS=true`) every TCP connection comes from
+/// the proxy, so the client address is read from the last `X-Forwarded-For` entry, the one
+/// appended by our proxy (earlier entries can be forged by the client). Otherwise the
+/// header is ignored and the TCP peer address is used.
 #[derive(Debug, Clone, Copy)]
 pub struct ClientIp(pub IpAddr);
 
-impl<S: Send + Sync> FromRequestParts<S> for ClientIp {
+impl ClientIp {
+    fn from_parts(parts: &Parts, trust_proxy_headers: bool) -> Self {
+        let forwarded = || {
+            parts
+                .headers
+                .get_all("x-forwarded-for")
+                .iter()
+                .filter_map(|value| value.to_str().ok())
+                .flat_map(|value| value.split(','))
+                .next_back()
+                .and_then(|entry| entry.trim().parse::<IpAddr>().ok())
+        };
+        let peer = || {
+            parts
+                .extensions
+                .get::<ConnectInfo<SocketAddr>>()
+                .map(|info| info.0.ip())
+        };
+        let ip = if trust_proxy_headers {
+            forwarded().or_else(peer)
+        } else {
+            peer()
+        };
+        Self(ip.unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED)))
+    }
+}
+
+impl FromRequestParts<AppState> for ClientIp {
     type Rejection = std::convert::Infallible;
 
     #[allow(clippy::unused_async_trait_impl)] // the trait requires an async function
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let ip = parts
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(Self::from_parts(parts, state.trust_proxy_headers))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::http::Request;
+
+    use super::*;
+
+    fn parts(forwarded: Option<&str>) -> Parts {
+        let mut builder = Request::get("/");
+        if let Some(value) = forwarded {
+            builder = builder.header("x-forwarded-for", value);
+        }
+        let (mut parts, ()) = builder.body(()).unwrap().into_parts();
+        parts
             .extensions
-            .get::<ConnectInfo<SocketAddr>>()
-            .map_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED), |info| info.0.ip());
-        Ok(Self(ip))
+            .insert(ConnectInfo(SocketAddr::from(([10, 0, 0, 2], 4000))));
+        parts
+    }
+
+    #[test]
+    fn ignores_forwarded_header_unless_trusted() {
+        let ip = ClientIp::from_parts(&parts(Some("203.0.113.9")), false);
+        assert_eq!(ip.0.to_string(), "10.0.0.2");
+    }
+
+    #[test]
+    fn uses_the_entry_added_by_our_proxy() {
+        let ip = ClientIp::from_parts(&parts(Some("198.51.100.1, 203.0.113.9")), true);
+        assert_eq!(ip.0.to_string(), "203.0.113.9");
+    }
+
+    #[test]
+    fn falls_back_to_the_peer_without_header() {
+        let ip = ClientIp::from_parts(&parts(None), true);
+        assert_eq!(ip.0.to_string(), "10.0.0.2");
     }
 }
 
