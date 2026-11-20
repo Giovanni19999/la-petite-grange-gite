@@ -7,6 +7,9 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { PublicPage } from './features/public/pages/data-access/pages.models';
 
+/** Longest wait for the lazily loaded admin area (the test itself is allowed twice that). */
+const ADMIN_LOAD_TIMEOUT_MS = 5_000;
+
 const HOME_FR: PublicPage = {
   lang: 'fr',
   title: 'La Petite Grange',
@@ -119,24 +122,31 @@ describe('F002 / F021 public routes', () => {
     expect(page.querySelector('h1')?.textContent).toContain('Page introuvable');
   });
 
-  it('F021-S03 keeps the admin area separate', async () => {
-    const navigation = harness.navigateByUrl('/admin');
-    // The admin area is loaded lazily: wait until its guard calls the API.
-    let requests = http.match('/api/auth/me');
-    for (let attempt = 0; requests.length === 0 && attempt < 20; attempt++) {
-      await macrotask();
-      requests = http.match('/api/auth/me');
-    }
-    requests[0].flush(
-      { error: { code: 'unauthorized' } },
-      { status: 401, statusText: 'Unauthorized' },
-    );
-    await navigation;
-    harness.detectChanges();
-    const page = harness.fixture.nativeElement as HTMLElement;
+  it(
+    'F021-S03 keeps the admin area separate',
+    async () => {
+      const navigation = harness.navigateByUrl('/admin');
+      // The admin area is loaded lazily: wait until its guard calls the API. The wait is
+      // bounded by time, not by a number of turns, so that slower CI machines pass too.
+      const deadline = Date.now() + ADMIN_LOAD_TIMEOUT_MS;
+      let requests = http.match('/api/auth/me');
+      while (requests.length === 0 && Date.now() < deadline) {
+        await macrotask();
+        requests = http.match('/api/auth/me');
+      }
+      expect(requests.length, 'the admin guard should call /api/auth/me').toBeGreaterThan(0);
+      requests[0].flush(
+        { error: { code: 'unauthorized' } },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+      await navigation;
+      harness.detectChanges();
+      const page = harness.fixture.nativeElement as HTMLElement;
 
-    expect(page.textContent).toContain('Espace administrateur');
-  });
+      expect(page.textContent).toContain('Espace administrateur');
+    },
+    2 * ADMIN_LOAD_TIMEOUT_MS,
+  );
 
   it('F021-S04 shows the not-found page for unknown deep URLs', async () => {
     await harness.navigateByUrl('/a/b/c');
