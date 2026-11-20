@@ -35,7 +35,14 @@ cargo run
 curl http://127.0.0.1:8080/api/health
 ```
 
-Tests and checks:
+Create an owner account for the admin (password asked twice, hidden; at least 12 characters):
+
+```bash
+cd Back
+cargo run -- create-admin --email owner@example.test
+```
+
+Tests and checks (the acceptance tests start a disposable MariaDB container, Docker required):
 
 ```bash
 cd Back

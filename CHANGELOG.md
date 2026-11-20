@@ -13,3 +13,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - F000 backend foundation: typed configuration validated at startup, `GET /api/health` (API version and database status), JSON error format, local MariaDB with Docker Compose.
 - F021 frontend foundation: Angular 22 with SSR and pre-rendering, Tailwind CSS v4 and spartan/ui with a single light blue theme, lazy public and admin areas, 404 page, API proxy, ESLint, Prettier, Vitest and license checks.
 - CI job for the front end (lint, format, tests, build, SSR checks, licenses).
+- F001 owner authentication: server-side sessions in an HttpOnly, Secure, SameSite=Strict cookie (ADR-0011), Argon2id passwords, throttled login, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `gite-api create-admin` command, admin login page, route guard and logout.
+- First database migration (users, sessions), applied at startup; acceptance tests on a disposable MariaDB container.

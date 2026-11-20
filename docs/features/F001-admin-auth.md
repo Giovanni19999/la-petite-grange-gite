@@ -1,7 +1,7 @@
 ---
 id: F001
 title: "Owner authentication (admin login)"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0011, ADR-0002, ADR-0004]
 ---
@@ -93,8 +93,8 @@ Feature: Owner authentication
 | F001-S04 | `Back/tests/auth.rs::f001_s04_rate_limited` |
 | F001-S05 | `Back/tests/auth.rs::f001_s05_logout` |
 | F001-S06 | `Back/src/domain/auth.rs::tests::f001_s06_idle_session_expired` |
-| F001-S07 | `Front/src/app/core/auth/auth.guard.spec.ts` |
-| F001-S08 | `Back/src/application/auth.rs::tests::f001_s08_*` |
+| F001-S07 | `Front/src/app/core/auth/auth.guard.spec.ts`, `Front/src/app/features/admin/login/login.page.spec.ts` |
+| F001-S08 | `Back/src/application/admin_accounts.rs::tests::f001_s08_*`, `Back/src/cli.rs::tests` |
 
 ## Changelog
 
