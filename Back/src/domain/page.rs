@@ -301,6 +301,27 @@ fn strip_tags(text: &str) -> String {
 }
 
 impl PageContent {
+    /// Every media of the media library used by the blocks, without duplicates, in order.
+    #[must_use]
+    pub fn media_ids(&self) -> Vec<MediaId> {
+        let mut ids = Vec::new();
+        for block in &self.blocks {
+            let used: Vec<MediaId> = match &block.kind {
+                BlockKind::Hero { image, .. } | BlockKind::TextImage { image, .. } => {
+                    image.iter().copied().collect()
+                }
+                BlockKind::Gallery { images, .. } => images.clone(),
+                BlockKind::Text { .. } | BlockKind::Columns { .. } => Vec::new(),
+            };
+            for id in used {
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+        }
+        ids
+    }
+
     /// Parses, validates and sanitises submitted page content.
     ///
     /// # Errors

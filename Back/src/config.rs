@@ -6,12 +6,15 @@
 
 use std::fmt;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use time::Duration;
 
 use crate::application::auth::LoginThrottle;
+use crate::application::media::MediaSettings;
 use crate::domain::auth::SessionPolicy;
+use crate::domain::media::{ImageSettings, UploadLimits};
 
 /// Deployment environment of the API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,6 +102,12 @@ pub struct Config {
     pub login_throttle: LoginThrottle,
     /// Trust `X-Forwarded-For` from the reverse proxy (true only behind it).
     pub trust_proxy_headers: bool,
+    /// Directory of the media files (F003, ADR-0017): `public/` and `originals/`.
+    pub media_dir: PathBuf,
+    /// Media library limits, sizes and public URL.
+    pub media: MediaSettings,
+    /// Serve the public media files from the API (development only; Caddy does it otherwise).
+    pub serve_media_files: bool,
 }
 
 /// Configuration error, always naming the faulty variable.
@@ -122,6 +131,13 @@ mod defaults {
     pub const SESSION_IDLE_DAYS: &str = "7";
     pub const LOGIN_MAX_FAILURES: &str = "5";
     pub const LOGIN_WINDOW_MINUTES: &str = "15";
+    pub const MEDIA_DIR: &str = "./data/media";
+    pub const MEDIA_PUBLIC_URL: &str = "/uploads";
+    pub const MEDIA_MAX_FILE_MB: &str = "20";
+    pub const MEDIA_MAX_FILES: &str = "20";
+    pub const MEDIA_MAX_MEGAPIXELS: &str = "50";
+    pub const MEDIA_WIDTHS: &str = "480,960,1440,1920";
+    pub const MEDIA_WEBP_QUALITY: &str = "80";
 }
 
 impl Config {
@@ -217,6 +233,8 @@ impl Config {
             )?)),
         };
 
+        let (media_dir, media, serve_media_files) = media_config(&lookup)?;
+
         Ok(Self {
             app_env,
             bind_addr,
@@ -226,8 +244,96 @@ impl Config {
             session_policy,
             login_throttle,
             trust_proxy_headers,
+            media_dir,
+            media,
+            serve_media_files,
         })
     }
+}
+
+fn optional(lookup: &impl Fn(&str) -> Option<String>, name: &str, default: &str) -> String {
+    lookup(name).unwrap_or_else(|| default.to_owned())
+}
+
+fn positive(
+    lookup: &impl Fn(&str) -> Option<String>,
+    name: &'static str,
+    default: &str,
+) -> Result<u32, ConfigError> {
+    optional(lookup, name, default)
+        .parse::<u32>()
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| ConfigError::Invalid {
+            variable: name,
+            reason: "must be a positive integer".to_owned(),
+        })
+}
+
+fn boolean(
+    lookup: &impl Fn(&str) -> Option<String>,
+    name: &'static str,
+    default: &str,
+) -> Result<bool, ConfigError> {
+    match optional(lookup, name, default).as_str() {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(ConfigError::Invalid {
+            variable: name,
+            reason: "must be true or false".to_owned(),
+        }),
+    }
+}
+
+/// Media library settings (F003, ADR-0017): directory, limits, sizes, public URL.
+fn media_config(
+    lookup: &impl Fn(&str) -> Option<String>,
+) -> Result<(PathBuf, MediaSettings, bool), ConfigError> {
+    let mut widths = Vec::new();
+    for width in optional(lookup, "MEDIA_WIDTHS", defaults::MEDIA_WIDTHS).split(',') {
+        let width = width
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|width| *width > 0)
+            .ok_or_else(|| ConfigError::Invalid {
+                variable: "MEDIA_WIDTHS",
+                reason: "must be positive integers separated by commas".to_owned(),
+            })?;
+        widths.push(width);
+    }
+    widths.sort_unstable();
+    widths.dedup();
+    let quality = positive(lookup, "MEDIA_WEBP_QUALITY", defaults::MEDIA_WEBP_QUALITY)?;
+    if quality > 100 {
+        return Err(ConfigError::Invalid {
+            variable: "MEDIA_WEBP_QUALITY",
+            reason: "must be between 1 and 100".to_owned(),
+        });
+    }
+    let media = MediaSettings {
+        limits: UploadLimits {
+            max_file_bytes: positive(lookup, "MEDIA_MAX_FILE_MB", defaults::MEDIA_MAX_FILE_MB)?
+                as usize
+                * 1024
+                * 1024,
+            max_files: positive(lookup, "MEDIA_MAX_FILES", defaults::MEDIA_MAX_FILES)? as usize,
+            max_pixels: u64::from(positive(
+                lookup,
+                "MEDIA_MAX_MEGAPIXELS",
+                defaults::MEDIA_MAX_MEGAPIXELS,
+            )?) * 1_000_000,
+        },
+        images: ImageSettings {
+            widths,
+            #[allow(clippy::cast_precision_loss)]
+            quality: quality as f32,
+        },
+        public_url: optional(lookup, "MEDIA_PUBLIC_URL", defaults::MEDIA_PUBLIC_URL),
+    };
+    let media_dir = PathBuf::from(optional(lookup, "MEDIA_DIR", defaults::MEDIA_DIR));
+    let serve_media_files = boolean(lookup, "SERVE_MEDIA_FILES", "false")?;
+    Ok((media_dir, media, serve_media_files))
 }
 
 #[cfg(test)]
@@ -261,6 +367,24 @@ mod tests {
         assert_eq!(config.login_throttle.max_failures, 5);
         assert_eq!(config.login_throttle.window, Duration::minutes(15));
         assert!(!config.trust_proxy_headers);
+        assert_eq!(config.media.images.widths, vec![480, 960, 1440, 1920]);
+        assert_eq!(config.media.limits.max_file_bytes, 20 * 1024 * 1024);
+        assert_eq!(config.media.limits.max_pixels, 50_000_000);
+        assert_eq!(config.media.public_url, "/uploads");
+        assert!(!config.serve_media_files);
+    }
+
+    #[test]
+    fn rejects_invalid_media_widths() {
+        let mut pairs = VALID.to_vec();
+        pairs.push(("MEDIA_WIDTHS", "480,abc"));
+        assert!(matches!(
+            Config::from_lookup(lookup_from(&pairs)),
+            Err(ConfigError::Invalid {
+                variable: "MEDIA_WIDTHS",
+                ..
+            })
+        ));
     }
 
     #[test]

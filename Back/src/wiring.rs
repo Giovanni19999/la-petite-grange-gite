@@ -3,6 +3,7 @@
 //! [`Infrastructure`] owns the shared resources (database pool) and their lifecycle;
 //! the free functions build use cases from them.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -11,13 +12,17 @@ use sqlx::MySqlPool;
 use crate::app_state::AppState;
 use crate::application::admin_accounts::AdminAccounts;
 use crate::application::auth::{AuthPorts, AuthService, LoginThrottle};
+use crate::application::media::{MediaPorts, MediaService, MediaSettings};
 use crate::application::pages::PageService;
 use crate::config::Config;
 use crate::domain::auth::SessionPolicy;
 use crate::infrastructure::auth::{
     Argon2Hasher, MariaDbSessions, MariaDbUsers, OsRandom, SystemClock,
 };
+use crate::infrastructure::images::WebpImageProcessor;
 use crate::infrastructure::mariadb::{MariaDbProbe, lazy_pool, migrate};
+use crate::infrastructure::media::MariaDbMedia;
+use crate::infrastructure::media_files::FsMediaFiles;
 use crate::infrastructure::pages::MariaDbPages;
 
 /// What to do when the migrations cannot be applied at startup.
@@ -71,8 +76,13 @@ impl Infrastructure {
             &self.pool,
             self.config.session_policy,
             self.config.login_throttle,
+            &self.config.media_dir,
+            self.config.media.clone(),
         )?;
         state.trust_proxy_headers = self.config.trust_proxy_headers;
+        if self.config.serve_media_files {
+            state.serve_media_dir = Some(self.config.media_dir.join("public"));
+        }
         Ok(state)
     }
 
@@ -123,6 +133,28 @@ pub fn admin_accounts(pool: &MySqlPool) -> anyhow::Result<AdminAccounts> {
     ))
 }
 
+/// Builds the media library service: `MariaDB` records, files under `media_dir`.
+///
+/// # Errors
+///
+/// Returns an error if the media directories cannot be created.
+pub fn media_service(
+    pool: &MySqlPool,
+    media_dir: &Path,
+    settings: MediaSettings,
+) -> anyhow::Result<MediaService> {
+    Ok(MediaService::new(
+        MediaPorts {
+            media: Arc::new(MariaDbMedia::new(pool.clone())),
+            files: Arc::new(FsMediaFiles::new(media_dir)?),
+            processor: Arc::new(WebpImageProcessor),
+            pages: Arc::new(MariaDbPages::new(pool.clone())),
+            clock: Arc::new(SystemClock),
+        },
+        settings,
+    ))
+}
+
 /// Builds the full application state.
 ///
 /// # Errors
@@ -132,14 +164,20 @@ pub fn app_state(
     pool: &MySqlPool,
     policy: SessionPolicy,
     throttle: LoginThrottle,
+    media_dir: &Path,
+    media_settings: MediaSettings,
 ) -> anyhow::Result<AppState> {
+    let media = Arc::new(media_service(pool, media_dir, media_settings)?);
     Ok(AppState {
         database: Arc::new(MariaDbProbe::new(pool.clone())),
         auth: Arc::new(auth_service(pool, policy, throttle)?),
         pages: Arc::new(PageService::new(
             Arc::new(MariaDbPages::new(pool.clone())),
             Arc::new(SystemClock),
+            media.clone(),
         )),
+        media,
+        serve_media_dir: None,
         trust_proxy_headers: false,
     })
 }
