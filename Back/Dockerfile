@@ -15,7 +15,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     target="$(uname -m)-unknown-linux-musl" \
     && cargo build --release --locked --target "$target" \
-    && cp "target/$target/release/gite-api" /gite-api     && mkdir -p /media/public /media/originals
+    && cp "target/$target/release/gite-api" /gite-api \
+    && mkdir -p /media/public /media/originals
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /gite-api /usr/local/bin/gite-api
@@ -25,7 +26,8 @@ COPY --from=build --chown=65532:65532 /media /data/media
 ENV APP_ENV=production \
     BIND_ADDR=0.0.0.0:8080 \
     LOG_FORMAT=json \
-    TRUST_PROXY_HEADERS=true     MEDIA_DIR=/data/media
+    TRUST_PROXY_HEADERS=true \
+    MEDIA_DIR=/data/media
 EXPOSE 8080
 USER nonroot
 ENTRYPOINT ["/usr/local/bin/gite-api"]
