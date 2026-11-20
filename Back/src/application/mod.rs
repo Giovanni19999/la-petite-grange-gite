@@ -3,3 +3,4 @@
 pub mod admin_accounts;
 pub mod auth;
 pub mod health;
+pub mod pages;
