@@ -42,9 +42,12 @@ services:
     build: ../Front
     image: gite-front:local
     restart: unless-stopped
+    depends_on: [api]
     environment:
       # Host names accepted by the SSR server (SSRF protection), comma-separated.
       NG_ALLOWED_HOSTS: ${SITE_HOSTS:-localhost}
+      # The SSR server calls the API directly inside the network (ADR-0013).
+      API_INTERNAL_URL: http://api:8080
     networks: [frontend]
 
   caddy:

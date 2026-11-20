@@ -58,7 +58,7 @@ Feature: Frontend foundation
 
 | Scenario | Test |
 |---|---|
-| F021-S01 | `Front/scripts/check-ssr.mjs` (after the production build) |
+| F021-S01 | `deploy/smoke-test.sh` (pages are rendered per request since F002) |
 | F021-S02 | `Front/scripts/check-ssr.mjs` (built stylesheet and HTML) |
 | F021-S03 | `Front/src/app/app.routes.spec.ts` |
 | F021-S04 | `Front/src/app/app.routes.spec.ts` |
