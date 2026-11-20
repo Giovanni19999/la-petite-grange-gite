@@ -24,6 +24,11 @@ export interface DraftHeroBlock extends DraftBlockBase {
   align: Align;
   height: 'small' | 'medium' | 'large';
   darken: number;
+  /** Fixed photo (`image`) or carousel (`images`), F024. */
+  mode: 'image' | 'carousel';
+  images: number[];
+  autoplay: boolean;
+  interval: number;
 }
 
 export interface DraftTextBlock extends DraftBlockBase {
@@ -57,9 +62,29 @@ export interface DraftGalleryBlock extends DraftBlockBase {
   columns: number;
 }
 
+export interface DraftImageBlock extends DraftBlockBase {
+  type: 'image';
+  image: number | null;
+  width: 'narrow' | 'wide' | 'full';
+}
+
+export interface DraftCarouselBlock extends DraftBlockBase {
+  type: 'carousel';
+  images: number[];
+  height: 'small' | 'medium' | 'large';
+  autoplay: boolean;
+  interval: number;
+}
+
 /** A block as stored in the draft: texts in both languages. */
 export type DraftBlock =
-  DraftHeroBlock | DraftTextBlock | DraftTextImageBlock | DraftColumnsBlock | DraftGalleryBlock;
+  | DraftHeroBlock
+  | DraftTextBlock
+  | DraftTextImageBlock
+  | DraftColumnsBlock
+  | DraftGalleryBlock
+  | DraftImageBlock
+  | DraftCarouselBlock;
 
 export type BlockType = DraftBlock['type'];
 

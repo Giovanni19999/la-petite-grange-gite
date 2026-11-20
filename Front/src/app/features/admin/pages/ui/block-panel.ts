@@ -52,6 +52,23 @@ const SPACINGS: readonly Choice<'small' | 'medium' | 'large'>[] = [
   { value: 'large', label: 'Grand' },
 ];
 
+const HERO_MODES: readonly Choice<'image' | 'carousel'>[] = [
+  { value: 'image', label: 'Image fixe' },
+  { value: 'carousel', label: 'Carrousel' },
+];
+const IMAGE_WIDTHS: readonly Choice<'narrow' | 'wide' | 'full'>[] = [
+  { value: 'narrow', label: 'Étroite' },
+  { value: 'wide', label: 'Large' },
+  { value: 'full', label: 'Toute la largeur' },
+];
+
+/** Image fields of the blocks (which one the picker fills). */
+type ImageField = 'hero' | 'hero_images' | 'text_image' | 'image' | 'gallery' | 'carousel';
+
+/** Seconds between two photos of a carousel, as checked by the API (F024). */
+const INTERVAL_MIN = 3;
+const INTERVAL_MAX = 15;
+
 /** Limits checked by the API (F002): hero darkening in percent, 2 to 4 columns. */
 const MAX_DARKEN = 80;
 const MIN_COLUMNS = 2;
@@ -129,9 +146,27 @@ const MAX_COLUMNS = 4;
               (input)="patch({ button_link: buttonLink.value.trim() || null })"
             />
           </label>
-          <ng-container
-            *ngTemplateOutlet="imageField; context: { $implicit: b.image, field: 'hero' }"
+          <app-choice-group
+            legend="Fond du bandeau"
+            [choices]="heroModes"
+            [value]="b.mode"
+            (changed)="patch({ mode: $event })"
           />
+          @if (b.mode === 'carousel') {
+            <ng-container
+              *ngTemplateOutlet="
+                imagesField;
+                context: { $implicit: b.images, field: 'hero_images' }
+              "
+            />
+            <ng-container
+              *ngTemplateOutlet="scrolling; context: { autoplay: b.autoplay, interval: b.interval }"
+            />
+          } @else {
+            <ng-container
+              *ngTemplateOutlet="imageField; context: { $implicit: b.image, field: 'hero' }"
+            />
+          }
           <app-choice-group
             legend="Position du texte"
             [choices]="aligns"
@@ -262,77 +297,42 @@ const MAX_COLUMNS = 4;
           }
         }
         @case ('gallery') {
-          <div class="flex flex-col gap-2">
-            <span class="text-sm font-medium">Photos (glissez pour changer l’ordre)</span>
-            <ul
-              class="grid grid-cols-3 gap-2"
-              cdkDropList
-              cdkDropListOrientation="mixed"
-              aria-label="Photos de la galerie"
-              (cdkDropListDropped)="moveImage(b.images, $event.previousIndex, $event.currentIndex)"
-            >
-              @for (id of b.images; track id; let i = $index; let last = $last) {
-                <li cdkDrag class="relative overflow-hidden rounded-md border bg-background">
-                  @if (mediaOf(id); as media) {
-                    <img
-                      class="aspect-square w-full object-cover"
-                      [src]="thumbnail(media)"
-                      [alt]="media.alt.fr"
-                      [style.object-position]="media.focal.x + '% ' + media.focal.y + '%'"
-                    />
-                  } @else {
-                    <div
-                      class="flex aspect-square items-center justify-center bg-muted p-1 text-center text-xs"
-                    >
-                      Image introuvable
-                    </div>
-                  }
-                  <div
-                    class="absolute inset-x-0 bottom-0 flex justify-between bg-background/90 p-0.5"
-                  >
-                    <button
-                      type="button"
-                      class="rounded px-1 text-xs hover:bg-muted disabled:opacity-40"
-                      [attr.aria-label]="'Avancer la photo ' + (i + 1)"
-                      [disabled]="i === 0"
-                      (click)="moveImage(b.images, i, i - 1)"
-                    >
-                      ←
-                    </button>
-                    <button
-                      type="button"
-                      class="rounded px-1 text-xs text-destructive hover:bg-muted"
-                      [attr.aria-label]="'Retirer la photo ' + (i + 1)"
-                      (click)="patch({ images: withoutImage(b.images, i) })"
-                    >
-                      ✕
-                    </button>
-                    <button
-                      type="button"
-                      class="rounded px-1 text-xs hover:bg-muted disabled:opacity-40"
-                      [attr.aria-label]="'Reculer la photo ' + (i + 1)"
-                      [disabled]="last"
-                      (click)="moveImage(b.images, i, i + 1)"
-                    >
-                      →
-                    </button>
-                  </div>
-                </li>
-              }
-            </ul>
-            <button
-              type="button"
-              class="self-start text-sm text-primary hover:underline"
-              (click)="openPicker('gallery')"
-            >
-              + Ajouter des photos
-            </button>
-          </div>
+          <ng-container
+            *ngTemplateOutlet="imagesField; context: { $implicit: b.images, field: 'gallery' }"
+          />
           <app-choice-group
             legend="Colonnes sur ordinateur"
             [choices]="galleryColumns"
             [value]="b.columns"
             (changed)="patch({ columns: $event })"
+          />
+        }
+        @case ('image') {
+          <ng-container
+            *ngTemplateOutlet="imageField; context: { $implicit: b.image, field: 'image' }"
+          />
+          <p class="text-xs text-muted-foreground">
+            La légende se règle dans la médiathèque, avec la photo.
+          </p>
+          <app-choice-group
+            legend="Largeur"
+            [choices]="imageWidths"
+            [value]="b.width"
+            (changed)="patch({ width: $event })"
+          />
+        }
+        @case ('carousel') {
+          <ng-container
+            *ngTemplateOutlet="imagesField; context: { $implicit: b.images, field: 'carousel' }"
+          />
+          <app-choice-group
+            legend="Hauteur"
+            [choices]="heights"
+            [value]="b.height"
+            (changed)="patch({ height: $event })"
+          />
+          <ng-container
+            *ngTemplateOutlet="scrolling; context: { autoplay: b.autoplay, interval: b.interval }"
           />
         }
       }
@@ -371,6 +371,106 @@ const MAX_COLUMNS = 4;
         Masquer sur téléphone
       </label>
     </div>
+
+    <ng-template #scrolling let-autoplay="autoplay" let-interval="interval">
+      <label class="flex items-center gap-2 text-sm">
+        <input
+          #auto
+          type="checkbox"
+          class="size-4 accent-primary"
+          [checked]="autoplay"
+          (change)="patch({ autoplay: auto.checked })"
+        />
+        Défilement automatique
+      </label>
+      @if (autoplay) {
+        <label class="flex flex-col items-start gap-2 text-sm font-medium">
+          Une photo toutes les {{ interval }} secondes
+          <input
+            #delay
+            class="w-full accent-primary"
+            type="range"
+            step="1"
+            [min]="intervalMin"
+            [max]="intervalMax"
+            [value]="interval"
+            (input)="patch({ interval: +delay.value })"
+          />
+        </label>
+      }
+    </ng-template>
+
+    <ng-template #imagesField let-ids let-field="field">
+      <div class="flex flex-col gap-2">
+        <span class="text-sm font-medium">Photos (glissez pour changer l’ordre)</span>
+        <ul
+          class="grid grid-cols-3 gap-2"
+          cdkDropList
+          cdkDropListOrientation="mixed"
+          aria-label="Photos de la galerie"
+          (cdkDropListDropped)="moveImage(ids, $event.previousIndex, $event.currentIndex)"
+        >
+          @for (id of ids; track id; let i = $index; let last = $last) {
+            <li cdkDrag class="relative overflow-hidden rounded-md border bg-background">
+              @if (mediaOf(id); as media) {
+                <img
+                  class="aspect-square w-full object-cover"
+                  [src]="thumbnail(media)"
+                  [alt]="media.alt.fr"
+                  [style.object-position]="media.focal.x + '% ' + media.focal.y + '%'"
+                />
+              } @else {
+                <div
+                  class="flex aspect-square items-center justify-center bg-muted p-1 text-center text-xs"
+                >
+                  Image introuvable
+                </div>
+              }
+              <div class="absolute inset-x-0 bottom-0 flex justify-between bg-background/90 p-0.5">
+                <button
+                  type="button"
+                  class="rounded px-1 text-xs hover:bg-muted disabled:opacity-40"
+                  [attr.aria-label]="'Avancer la photo ' + (i + 1)"
+                  [disabled]="i === 0"
+                  (click)="moveImage(ids, i, i - 1)"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  class="rounded px-1 text-xs text-destructive hover:bg-muted"
+                  [attr.aria-label]="'Retirer la photo ' + (i + 1)"
+                  (click)="patch({ images: withoutImage(ids, i) })"
+                >
+                  ✕
+                </button>
+                <button
+                  type="button"
+                  class="rounded px-1 text-xs hover:bg-muted disabled:opacity-40"
+                  [attr.aria-label]="'Reculer la photo ' + (i + 1)"
+                  [disabled]="last"
+                  (click)="moveImage(ids, i, i + 1)"
+                >
+                  →
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+        <button
+          type="button"
+          class="self-start text-sm text-primary hover:underline"
+          (click)="openPicker(field)"
+        >
+          + Ajouter des photos
+        </button>
+        @if (field !== 'gallery' && ids.length < 2) {
+          <p class="text-xs text-amber-900" role="status">
+            Un carrousel a besoin d’au moins 2 photos pour être enregistré.
+          </p>
+        }
+      </div>
+    </ng-template>
 
     <ng-template #imageField let-id let-field="field">
       <div class="flex flex-col gap-2">
@@ -415,7 +515,7 @@ const MAX_COLUMNS = 4;
 
     <app-media-picker-dialog
       [open]="picker() !== null"
-      [multiple]="picker() === 'gallery'"
+      [multiple]="isList(picker())"
       (chosen)="onChosen($event)"
       (closed)="picker.set(null)"
     />
@@ -443,11 +543,15 @@ export class BlockPanel {
   protected readonly maxDarken = MAX_DARKEN;
   protected readonly minColumns = MIN_COLUMNS;
   protected readonly maxColumns = MAX_COLUMNS;
+  protected readonly heroModes = HERO_MODES;
+  protected readonly imageWidths = IMAGE_WIDTHS;
+  protected readonly intervalMin = INTERVAL_MIN;
+  protected readonly intervalMax = INTERVAL_MAX;
   protected readonly label = blockLabel;
 
   private readonly media = inject(MediaStore);
   /** Which image field the picker is open for. */
-  protected readonly picker = signal<'hero' | 'text_image' | 'gallery' | null>(null);
+  protected readonly picker = signal<ImageField | null>(null);
 
   constructor() {
     void this.media.ensureLoaded();
@@ -461,15 +565,20 @@ export class BlockPanel {
     return thumbnailUrl(media, 480);
   }
 
-  protected openPicker(field: 'hero' | 'text_image' | 'gallery'): void {
+  protected openPicker(field: ImageField): void {
     this.picker.set(field);
+  }
+
+  /** Fields holding several photos (the picker then lets the owner tick several). */
+  protected isList(field: ImageField | null): boolean {
+    return field === 'gallery' || field === 'carousel' || field === 'hero_images';
   }
 
   protected onChosen(ids: number[]): void {
     const block = this.block();
-    if (block.type === 'gallery') {
+    if (this.isList(this.picker()) && 'images' in block) {
       this.patch({ images: [...block.images, ...ids.filter((id) => !block.images.includes(id))] });
-    } else if (block.type === 'hero' || block.type === 'text_image') {
+    } else if ('image' in block) {
       this.patch({ image: ids[0] ?? null });
     }
     this.picker.set(null);

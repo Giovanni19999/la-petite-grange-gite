@@ -29,7 +29,13 @@ interface BlockBase {
 
 export interface HeroBlock extends BlockBase {
   type: 'hero';
+  /** Fixed photo (`image`) or carousel (`images`), F024. */
+  mode: 'image' | 'carousel';
   image: PublicImage | null;
+  images: PublicImage[];
+  autoplay: boolean;
+  /** Seconds between two photos of the carousel. */
+  interval: number;
   title: string;
   subtitle: string;
   button_label: string;
@@ -65,8 +71,25 @@ export interface GalleryBlock extends BlockBase {
   columns: number;
 }
 
+/** One photo with its caption (F024). */
+export interface ImageBlock extends BlockBase {
+  type: 'image';
+  image: PublicImage | null;
+  width: 'narrow' | 'wide' | 'full';
+}
+
+/** Photos that scroll (F024). */
+export interface CarouselBlock extends BlockBase {
+  type: 'carousel';
+  images: PublicImage[];
+  height: 'small' | 'medium' | 'large';
+  autoplay: boolean;
+  interval: number;
+}
+
 /** A block with its texts already resolved in the page language by the API. */
-export type PublicBlock = HeroBlock | TextBlock | TextImageBlock | ColumnsBlock | GalleryBlock;
+export type PublicBlock =
+  HeroBlock | TextBlock | TextImageBlock | ColumnsBlock | GalleryBlock | ImageBlock | CarouselBlock;
 
 export interface PublicPage {
   lang: Lang;

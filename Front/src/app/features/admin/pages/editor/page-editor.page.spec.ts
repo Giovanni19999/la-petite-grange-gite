@@ -30,6 +30,18 @@ const MEDIA: Media[] = [
     used_in: [],
     created_at: '2026-11-20T10:00:00Z',
   },
+  {
+    id: 8,
+    width: 1600,
+    height: 1000,
+    sources: [{ width: 480, url: '/uploads/def-480.webp' }],
+    alt: { fr: 'Le jardin', en: '' },
+    caption: { fr: '', en: '' },
+    focal: { x: 50, y: 50 },
+    missing_alt: false,
+    used_in: [],
+    created_at: '2026-11-20T10:00:00Z',
+  },
 ];
 
 function adminPage(): AdminPage {
@@ -199,6 +211,35 @@ describe('F023 page editor', () => {
     expect(root().querySelector('[data-testid="save-status"]')?.textContent).toContain(
       'Modifications en cours',
     );
+    http.match(() => true);
+  });
+
+  it('F024-S04 S05 adds a carousel block and ticks its photos', async () => {
+    await open();
+    button('Ajouter un bloc à la position 4').click();
+    await settle();
+    Array.from(root().querySelectorAll<HTMLButtonElement>('[aria-label="Type de bloc"] button'))
+      .find((candidate) => candidate.querySelector('span')?.textContent === 'Carrousel')!
+      .click();
+    await settle();
+
+    button('+ Ajouter des photos', root().querySelector('aside')!).click();
+    await settle();
+    const tiles = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[data-testid="picker-tile"]'),
+    );
+    tiles[1].click();
+    tiles[0].click();
+    await settle();
+    Array.from(document.querySelectorAll<HTMLButtonElement>('hlm-dialog-content button'))
+      .find((candidate) => candidate.textContent?.trim().startsWith('Ajouter'))!
+      .click();
+    await settle();
+
+    const carousel = previewBlocks()[3].querySelector('app-carousel')!;
+    expect(carousel.querySelectorAll('[data-testid="slide"]')).toHaveLength(2);
+    expect(carousel.querySelector('img')?.getAttribute('alt')).toBe('Le jardin');
+    expect(carousel.querySelector('[data-testid="pause"]')).toBeNull();
     http.match(() => true);
   });
 
