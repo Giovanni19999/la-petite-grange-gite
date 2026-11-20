@@ -15,6 +15,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # sqlx query macros use the committed Back/.sqlx metadata instead of a live database
+  SQLX_OFFLINE: "true"
 
 jobs:
   back:
