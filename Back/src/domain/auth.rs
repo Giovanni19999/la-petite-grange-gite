@@ -86,7 +86,7 @@ impl fmt::Debug for Password {
 /// Why a new password was rejected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum WeakPassword {
-    #[error("the password must contain at least {min} characters")]
+    #[error("le mot de passe doit contenir au moins {min} caractères")]
     TooShort { min: usize },
 }
 

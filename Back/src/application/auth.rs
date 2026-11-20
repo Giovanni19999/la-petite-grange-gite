@@ -10,7 +10,7 @@ use time::{Duration, OffsetDateTime};
 use crate::application::health::BoxFuture;
 use crate::domain::auth::{
     Email, Password, SESSION_TOKEN_BYTES, Session, SessionPolicy, SessionToken, SessionTokenHash,
-    UserId, WeakPassword, check_new_password,
+    UserId,
 };
 
 /// Stored credentials of a user.
@@ -148,19 +148,6 @@ pub enum LoginError {
     Internal(#[from] anyhow::Error),
 }
 
-/// Why an admin account could not be created.
-#[derive(Debug, thiserror::Error)]
-pub enum CreateAdminError {
-    #[error("invalid email address")]
-    InvalidEmail,
-    #[error(transparent)]
-    WeakPassword(#[from] WeakPassword),
-    #[error("an account already exists for this email")]
-    AlreadyExists,
-    #[error(transparent)]
-    Internal(#[from] anyhow::Error),
-}
-
 /// Ports used by the authentication service.
 #[derive(Clone)]
 #[allow(missing_debug_implementations)] // trait objects without Debug
@@ -282,29 +269,6 @@ impl AuthService {
     /// Returns an error on infrastructure failures.
     pub async fn logout(&self, token: &SessionToken) -> anyhow::Result<()> {
         self.ports.sessions.delete(&token.hash()).await
-    }
-
-    /// Creates an admin account (command-line tool only).
-    ///
-    /// # Errors
-    ///
-    /// See [`CreateAdminError`].
-    pub async fn create_admin(
-        &self,
-        raw_email: &str,
-        password: &Password,
-    ) -> Result<UserId, CreateAdminError> {
-        let email = Email::parse(raw_email).map_err(|_| CreateAdminError::InvalidEmail)?;
-        check_new_password(password)?;
-        let hash = self.ports.hasher.hash(password).await?;
-        self.ports
-            .users
-            .create(&email, &hash)
-            .await
-            .map_err(|error| match error {
-                CreateUserError::AlreadyExists => CreateAdminError::AlreadyExists,
-                CreateUserError::Other(error) => CreateAdminError::Internal(error),
-            })
     }
 }
 
@@ -474,6 +438,7 @@ pub mod fakes {
 mod tests {
     use super::fakes::*;
     use super::*;
+    use crate::application::admin_accounts::AdminAccounts;
     use std::net::Ipv4Addr;
     use time::macros::datetime;
 
@@ -489,9 +454,17 @@ mod tests {
     async fn fixture() -> Fixture {
         let clock = Arc::new(FixedClock(Mutex::new(datetime!(2026-11-20 10:00 UTC))));
         let sessions = Arc::new(InMemorySessions::default());
+        let users = Arc::new(InMemoryUsers::default());
+        AdminAccounts::new(users.clone(), Arc::new(PlainHasher))
+            .create(
+                "proprio@example.test",
+                &Password::new("correct horse battery"),
+            )
+            .await
+            .unwrap();
         let service = AuthService::new(
             AuthPorts {
-                users: Arc::new(InMemoryUsers::default()),
+                users,
                 sessions: sessions.clone(),
                 hasher: Arc::new(PlainHasher),
                 clock: clock.clone(),
@@ -506,13 +479,6 @@ mod tests {
                 window: Duration::minutes(15),
             },
         );
-        service
-            .create_admin(
-                "proprio@example.test",
-                &Password::new("correct horse battery"),
-            )
-            .await
-            .unwrap();
         Fixture {
             service,
             clock,
@@ -659,53 +625,5 @@ mod tests {
             f.clock.advance(Duration::days(6));
             assert!(f.service.current_user(&token).await.unwrap().is_some());
         }
-    }
-
-    #[tokio::test]
-    async fn f001_s08_create_admin_hashes_the_password() {
-        let f = fixture().await;
-
-        f.service
-            .create_admin("second@example.test", &Password::new("another long secret"))
-            .await
-            .unwrap();
-        let (_, user) = f
-            .service
-            .login(
-                "second@example.test",
-                &Password::new("another long secret"),
-                IP,
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(user.email.as_str(), "second@example.test");
-    }
-
-    #[tokio::test]
-    async fn f001_s08_create_admin_refuses_a_short_password() {
-        let f = fixture().await;
-
-        let result = f
-            .service
-            .create_admin("second@example.test", &Password::new("too short"))
-            .await;
-
-        assert!(matches!(result, Err(CreateAdminError::WeakPassword(_))));
-    }
-
-    #[tokio::test]
-    async fn f001_s08_create_admin_refuses_a_duplicate_email() {
-        let f = fixture().await;
-
-        let result = f
-            .service
-            .create_admin(
-                "Proprio@Example.test",
-                &Password::new("another long secret"),
-            )
-            .await;
-
-        assert!(matches!(result, Err(CreateAdminError::AlreadyExists)));
     }
 }
