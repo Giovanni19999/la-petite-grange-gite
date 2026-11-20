@@ -1,7 +1,7 @@
 ---
 id: F003
 title: "Media library: upload, WebP sizes, focal point, alt text, images in blocks"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0017, ADR-0009, ADR-0010, ADR-0011, ADR-0016]
 ---
@@ -100,7 +100,16 @@ Feature: Media library
 
 | Scenario | Test |
 |---|---|
-| F003-S01 → S10 | to be filled in when implemented |
+| F003-S01 | `Back/src/domain/media.rs::tests::f003_s01_*`, `Back/src/infrastructure/images.rs::tests::f003_s01_*`, `Back/src/application/media_tests.rs::f003_s01_*`, `Back/tests/media.rs::f003_s01_s03_*`, `Front/src/app/features/admin/media/media-library.page.spec.ts` |
+| F003-S02 | `Back/src/infrastructure/images.rs::tests::f003_s02_applies_orientation_and_drops_metadata` |
+| F003-S03 | `Back/src/domain/media.rs::tests::f003_s03_*`, `Back/src/infrastructure/images.rs::tests::f003_s03_*`, `Back/src/application/media_tests.rs::f003_s01_s03_*`, `Back/tests/media.rs::f003_s01_s03_*` |
+| F003-S04 | `Back/src/domain/media.rs::tests::f003_s04_*`, `Back/src/infrastructure/images.rs::tests::f003_s04_*`, `Back/tests/media.rs::f003_s04_too_many_pixels` |
+| F003-S05 | `Back/src/domain/media.rs::tests::f003_s05_*`, `Back/src/application/media_tests.rs::f003_s05_*`, `Back/tests/media.rs::f003_s05_describe_a_photo`, `Front/src/app/features/admin/media/media-library.page.spec.ts` |
+| F003-S06 | `Back/src/application/media_tests.rs::f003_s06_s07_*`, `Back/src/infrastructure/media_files.rs::tests`, `Back/tests/media.rs::f003_s06_s07_*`, `Front/src/app/features/admin/media/media-library.page.spec.ts` |
+| F003-S07 | `Back/src/application/media_tests.rs::f003_s06_s07_*`, `Back/tests/media.rs::f003_s06_s07_*`, `Front/src/app/features/admin/media/media-library.page.spec.ts` |
+| F003-S08 | `Back/src/application/pages.rs::tests::f003_s08_*`, `Back/tests/media.rs::f003_s08_*`, `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
+| F003-S09 | `Back/src/application/media_tests.rs::f003_s09_*`, `Back/tests/media.rs::f003_s09_*`, `Front/src/app/shared/media/responsive-image.spec.ts`, `deploy/smoke-test.sh` (proxy and cache header) |
+| F003-S10 | `Back/tests/media.rs::f003_s10_admin_only` |
 
 ## Changelog
 
