@@ -1,0 +1,73 @@
+# Full stack (ADR-0012): MariaDB, API, Angular SSR front end and Caddy.
+# Usage: cp deploy/.env.example deploy/.env  (fill it in), then
+#        docker compose -f deploy/compose.yaml up -d --build
+name: la-petite-grange
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE:?set in deploy/.env}
+      MARIADB_USER: ${MARIADB_USER:?set in deploy/.env}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?set in deploy/.env}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?set in deploy/.env}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [backend]
+
+  api:
+    build: ../Back
+    image: gite-api:local
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/${MARIADB_DATABASE}
+      TRUST_PROXY_HEADERS: "true"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks: [backend, frontend]
+
+  front:
+    build: ../Front
+    image: gite-front:local
+    restart: unless-stopped
+    environment:
+      # Host names accepted by the SSR server (SSRF protection), comma-separated.
+      NG_ALLOWED_HOSTS: ${SITE_HOSTS:-localhost}
+    networks: [frontend]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [api, front]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "${HTTP_PORT:-8000}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [frontend]
+
+volumes:
+  mariadb-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  # The database is only reachable from the API.
+  backend:
+    internal: true
+  frontend:
