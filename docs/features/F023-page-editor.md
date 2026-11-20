@@ -1,7 +1,7 @@
 ---
 id: F023
 title: "Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog)"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0009, ADR-0015, ADR-0004, ADR-0013]
 ---
@@ -136,7 +136,21 @@ Feature: Visual page editor
 
 | Scenario | Test |
 |---|---|
-| F023-S01 → S15 | to be filled in when implemented (Front unit/component tests named `F023-SNN …`) |
+| F023-S01 | `Front/src/app/features/admin/pages/pages-list/pages-list.page.spec.ts` |
+| F023-S02 | `Front/src/app/features/admin/pages/pages-list/pages-list.page.spec.ts`, `Front/src/app/features/admin/pages/data-access/page-content.spec.ts` |
+| F023-S03 | `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
+| F023-S04 | `Front/src/app/features/admin/pages/data-access/page-editor.store.spec.ts` |
+| F023-S05 | `Front/src/app/features/admin/pages/data-access/page-content.spec.ts`, `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
+| F023-S06 | `Front/src/app/features/admin/pages/data-access/page-content.spec.ts` (new order); the drag gesture itself is checked by hand in the browser |
+| F023-S07 | `Front/src/app/features/admin/pages/data-access/page-content.spec.ts`, `Front/src/app/features/admin/pages/data-access/page-editor.store.spec.ts`, `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
+| F023-S08 | `Front/src/app/shared/rich-text/rich-text-editor.spec.ts` |
+| F023-S09 | `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
+| F023-S10 | `Front/src/app/features/admin/pages/data-access/page-editor.store.spec.ts` |
+| F023-S11 | `Front/src/app/features/admin/pages/data-access/page-editor.store.spec.ts` |
+| F023-S12 | `Front/src/app/features/admin/pages/data-access/page-content.spec.ts`, `Front/src/app/features/admin/pages/data-access/page-editor.store.spec.ts`, `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
+| F023-S13 | `Front/src/app/features/admin/pages/data-access/page-editor.store.spec.ts` |
+| F023-S14 | `Front/src/app/features/admin/pages/data-access/page-editor.store.spec.ts` |
+| F023-S15 | `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
 
 ## Changelog
 
