@@ -3,9 +3,11 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { PublicBlock } from '../../data-access/pages.models';
 import { BlockFrame } from './block-frame';
 import {
+  CarouselBlockView,
   ColumnsBlockView,
   GalleryBlockView,
   HeroBlockView,
+  ImageBlockView,
   TextBlockView,
   TextImageBlockView,
 } from './blocks';
@@ -24,6 +26,8 @@ import {
     TextImageBlockView,
     ColumnsBlockView,
     GalleryBlockView,
+    ImageBlockView,
+    CarouselBlockView,
   ],
   template: `
     @let b = block();
@@ -52,6 +56,12 @@ import {
           @case ('gallery') {
             <app-gallery-block [block]="b" [priority]="priority()" />
           }
+          @case ('image') {
+            <app-image-block [block]="b" [priority]="priority()" />
+          }
+          @case ('carousel') {
+            <app-carousel-block [block]="b" [priority]="priority()" />
+          }
         }
       </app-block-frame>
     }
@@ -67,7 +77,9 @@ export class BlockRenderer {
 export function firstImageBlock(blocks: readonly PublicBlock[]): number {
   return blocks.findIndex(
     (block) =>
-      ((block.type === 'hero' || block.type === 'text_image') && block.image !== null) ||
-      (block.type === 'gallery' && block.images.length > 0),
+      (block.type === 'hero' &&
+        (block.mode === 'carousel' ? block.images.length > 0 : block.image !== null)) ||
+      ((block.type === 'text_image' || block.type === 'image') && block.image !== null) ||
+      ((block.type === 'gallery' || block.type === 'carousel') && block.images.length > 0),
   );
 }

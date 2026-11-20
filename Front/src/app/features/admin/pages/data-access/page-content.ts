@@ -20,7 +20,12 @@ export const BLOCK_TYPES: readonly { type: BlockType; label: string; description
   { type: 'text_image', label: 'Texte et image', description: 'Texte à côté d’une image' },
   { type: 'columns', label: 'Colonnes', description: '2 à 4 colonnes avec titre et texte' },
   { type: 'gallery', label: 'Galerie', description: 'Grille de photos' },
+  { type: 'image', label: 'Image', description: 'Une photo seule avec sa légende' },
+  { type: 'carousel', label: 'Carrousel', description: 'Photos qui défilent' },
 ];
+
+/** Seconds between two photos of a carousel, by default (F024). */
+export const DEFAULT_CAROUSEL_INTERVAL = 6;
 
 export function blockLabel(type: BlockType): string {
   return BLOCK_TYPES.find((entry) => entry.type === type)?.label ?? type;
@@ -65,6 +70,10 @@ export function newBlock(type: BlockType, taken: ReadonlySet<string>): DraftBloc
         align: 'center',
         height: 'medium',
         darken: 0,
+        mode: 'image',
+        images: [],
+        autoplay: true,
+        interval: DEFAULT_CAROUSEL_INTERVAL,
       };
     case 'text':
       return { ...base, type, body: emptyText(), width: 'narrow', align: 'left' };
@@ -81,6 +90,17 @@ export function newBlock(type: BlockType, taken: ReadonlySet<string>): DraftBloc
       return { ...base, type, items: [emptyColumn(), emptyColumn(), emptyColumn()] };
     case 'gallery':
       return { ...base, type, images: [], columns: 3 };
+    case 'image':
+      return { ...base, type, image: null, width: 'wide' };
+    case 'carousel':
+      return {
+        ...base,
+        type,
+        images: [],
+        height: 'medium',
+        autoplay: false,
+        interval: DEFAULT_CAROUSEL_INTERVAL,
+      };
   }
 }
 
@@ -181,6 +201,11 @@ export function toPreviewBlock(
         align: block.align,
         height: block.height,
         darken: block.darken,
+        mode: block.mode,
+        images: block.images.flatMap((id) => image(id) ?? []),
+        // No scrolling in the editor: the owner looks at one photo at a time.
+        autoplay: false,
+        interval: block.interval,
       };
       break;
     case 'text':
@@ -218,6 +243,19 @@ export function toPreviewBlock(
         type: 'gallery',
         images: block.images.flatMap((id) => image(id) ?? []),
         columns: block.columns,
+      };
+      break;
+    case 'image':
+      preview = { ...common, type: 'image', image: image(block.image), width: block.width };
+      break;
+    case 'carousel':
+      preview = {
+        ...common,
+        type: 'carousel',
+        images: block.images.flatMap((id) => image(id) ?? []),
+        height: block.height,
+        autoplay: false,
+        interval: block.interval,
       };
       break;
   }

@@ -1,11 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
+import { Carousel } from '../../../../../shared/media/carousel';
 import { ResponsiveImage } from '../../../../../shared/media/responsive-image';
 import {
   Align,
+  CarouselBlock,
   ColumnsBlock,
   GalleryBlock,
   HeroBlock,
+  ImageBlock,
   PublicBlock,
   TextBlock,
   TextImageBlock,
@@ -33,13 +36,29 @@ const HERO_HEIGHT: Record<HeroBlock['height'], string> = {
 @Component({
   selector: 'app-hero-block',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ResponsiveImage],
+  imports: [Carousel, ResponsiveImage],
   template: `
     <div
       class="relative isolate flex flex-col justify-center gap-4 overflow-hidden bg-gradient-to-br from-primary to-primary/70 px-4 py-16 text-primary-foreground"
       [class]="heightClass() + ' ' + alignClass()"
     >
-      @if (block().image; as image) {
+      @if (block().mode === 'carousel' && block().images.length > 0) {
+        <div class="absolute inset-0 -z-10">
+          <app-carousel
+            class="h-full"
+            label="Photos du gîte"
+            [images]="block().images"
+            [autoplay]="block().autoplay"
+            [interval]="block().interval"
+            [priority]="priority()"
+            [showCaptions]="false"
+          />
+          <div
+            class="pointer-events-none absolute inset-0 bg-black"
+            [style.opacity]="block().darken / 100"
+          ></div>
+        </div>
+      } @else if (block().image; as image) {
         <div class="absolute inset-0 -z-10">
           <app-responsive-image
             [image]="image"
@@ -50,7 +69,11 @@ const HERO_HEIGHT: Record<HeroBlock['height'], string> = {
           <div class="absolute inset-0 bg-black" [style.opacity]="block().darken / 100"></div>
         </div>
       }
-      <div class="mx-auto flex w-full max-w-4xl flex-col gap-4" [class]="alignClass()">
+      <!-- Clicks and swipes go through the texts to the photos (F024); the button stays usable. -->
+      <div
+        class="pointer-events-none mx-auto flex w-full max-w-4xl flex-col gap-4"
+        [class]="alignClass()"
+      >
         <h1
           class="text-4xl font-semibold tracking-tight @2xl:text-5xl"
           [class.opacity-60]="isFallback(block(), 'title')"
@@ -67,7 +90,7 @@ const HERO_HEIGHT: Record<HeroBlock['height'], string> = {
         }
         @if (block().button_label && block().button_link) {
           <a
-            class="mt-2 inline-flex w-fit rounded-md bg-background px-6 py-3 font-medium text-foreground shadow-sm transition hover:opacity-90"
+            class="pointer-events-auto mt-2 inline-flex w-fit rounded-md bg-background px-6 py-3 font-medium text-foreground shadow-sm transition hover:opacity-90"
             [href]="block().button_link"
             [class.opacity-60]="isFallback(block(), 'button_label')"
           >
@@ -227,6 +250,71 @@ export class GalleryBlockView {
   protected readonly columnsClass = computed(
     () => ({ 3: '@3xl:grid-cols-3', 4: '@3xl:grid-cols-4' })[this.block().columns] ?? '',
   );
+}
+
+const IMAGE_WIDTH: Record<ImageBlock['width'], { frame: string; sizes: string }> = {
+  narrow: { frame: 'mx-auto max-w-2xl px-4', sizes: '(min-width: 672px) 672px, 100vw' },
+  wide: { frame: 'mx-auto max-w-5xl px-4', sizes: '(min-width: 1024px) 1024px, 100vw' },
+  full: { frame: 'w-full', sizes: '100vw' },
+};
+
+/** One photo with its caption, narrow, wide or full width (F024). */
+@Component({
+  selector: 'app-image-block',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ResponsiveImage],
+  template: `
+    @if (block().image; as image) {
+      <figure class="flex flex-col gap-2" [class]="width().frame">
+        <app-responsive-image
+          [image]="image"
+          [sizes]="width().sizes"
+          [priority]="priority()"
+          [imageClass]="block().width === 'full' ? 'h-auto w-full' : 'h-auto w-full rounded-lg'"
+        />
+        @if (image.caption) {
+          <figcaption class="text-sm text-muted-foreground" [class.px-4]="block().width === 'full'">
+            {{ image.caption }}
+          </figcaption>
+        }
+      </figure>
+    }
+  `,
+})
+export class ImageBlockView {
+  readonly block = input.required<ImageBlock>();
+  /** First image of the page (loaded at once). */
+  readonly priority = input(false);
+  protected readonly width = computed(() => IMAGE_WIDTH[this.block().width]);
+}
+
+/** Photos that scroll, with their captions (F024). */
+@Component({
+  selector: 'app-carousel-block',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Carousel],
+  template: `
+    @if (block().images.length > 0) {
+      <div class="mx-auto max-w-5xl px-4">
+        <app-carousel
+          class="overflow-hidden rounded-lg bg-muted"
+          [class]="heightClass()"
+          label="Photos"
+          [images]="block().images"
+          [autoplay]="block().autoplay"
+          [interval]="block().interval"
+          [priority]="priority()"
+          sizes="(min-width: 1024px) 1024px, 100vw"
+        />
+      </div>
+    }
+  `,
+})
+export class CarouselBlockView {
+  readonly block = input.required<CarouselBlock>();
+  /** First image of the page (loaded at once). */
+  readonly priority = input(false);
+  protected readonly heightClass = computed(() => HERO_HEIGHT[this.block().height]);
 }
 
 /** Editor preview (F023): whether a text is shown in French because its English one is empty. */
