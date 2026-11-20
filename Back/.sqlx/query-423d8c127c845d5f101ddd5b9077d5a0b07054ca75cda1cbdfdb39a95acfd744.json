@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "DELETE FROM pages WHERE id = ? AND is_home = FALSE",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "423d8c127c845d5f101ddd5b9077d5a0b07054ca75cda1cbdfdb39a95acfd744"
+}

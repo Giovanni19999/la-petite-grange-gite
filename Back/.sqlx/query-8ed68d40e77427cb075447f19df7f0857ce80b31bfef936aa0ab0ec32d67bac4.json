@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE pages SET draft = ?, draft_version = draft_version + 1 WHERE id = ? AND draft_version = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "8ed68d40e77427cb075447f19df7f0857ce80b31bfef936aa0ab0ec32d67bac4"
+}

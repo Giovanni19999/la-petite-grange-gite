@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO pages (is_home, draft, draft_version) VALUES (FALSE, ?, 1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "da3e50d267e6b1bfe2356abc1862177d49c800e58f626a15d70f8fdaaa101967"
+}
