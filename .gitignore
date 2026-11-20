@@ -1,0 +1,43 @@
+# --- Documents privés (ne jamais publier) ---
+CAHIER_DES_CHARGES.md
+CAHIER_DES_CHARGES.pdf
+Back/PLAN.md
+/private/
+
+# --- Secrets et configuration locale ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Données et fichiers envoyés (photos réelles, dumps) ---
+uploads/
+backups/
+*.sql
+*.sql.gz
+*.dump
+
+# --- Rust (Back) ---
+target/
+**/*.rs.bk
+
+# --- Angular / Node (Front) ---
+node_modules/
+dist/
+.angular/
+coverage/
+npm-debug.log*
+yarn-error.log*
+
+# --- Tests ---
+playwright-report/
+test-results/
+
+# --- IDE et système ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+.DS_Store
+Thumbs.db
