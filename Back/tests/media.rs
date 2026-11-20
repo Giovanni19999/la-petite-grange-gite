@@ -146,7 +146,7 @@ async fn f003_s04_too_many_pixels() {
     let app = TestApp::start().await;
     let cookie = app.owner_cookie().await;
     let result = upload_ok(&app, &cookie, &[("immense.jpg", jpeg(2100, 2000, 0))]).await;
-    assert!(result["uploaded"].as_array().unwrap().is_empty());
+    assert_eq!(result["uploaded"], json!([]));
     assert!(
         result["refused"][0]["reason"]
             .as_str()
