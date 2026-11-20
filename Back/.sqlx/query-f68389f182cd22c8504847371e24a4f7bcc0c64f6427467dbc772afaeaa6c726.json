@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE sessions SET last_used_at = ? WHERE token_hash = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "f68389f182cd22c8504847371e24a4f7bcc0c64f6427467dbc772afaeaa6c726"
+}
