@@ -26,6 +26,16 @@ allow = [
     "CDLA-Permissive-2.0",
 ]
 
+# MPL-2.0 (file-level copyleft) allowed only for the unmodified dependencies of the
+# ammonia HTML sanitiser: see docs/adr/0014-mpl-exception-for-html-sanitiser.md
+[[licenses.exceptions]]
+crate = "cssparser"
+allow = ["MPL-2.0"]
+
+[[licenses.exceptions]]
+crate = "dtoa-short"
+allow = ["MPL-2.0"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
