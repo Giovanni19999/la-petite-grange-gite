@@ -24,10 +24,17 @@ module_name_repetitions = "allow"
 
 [dependencies]
 anyhow = "1.0.104"
+argon2 = "0.6.0"
 axum = "0.8.9"
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+base64 = "0.23.1"
+clap = { version = "4.6.9", features = ["derive"] }
 dotenvy = "0.15.7"
+rand = "0.10.4"
+rpassword = "7.5.5"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+sha2 = "0.11.1"
 sqlx = { version = "0.9.1", default-features = false, features = ["runtime-tokio", "tls-rustls", "mysql", "macros", "migrate", "time"] }
 thiserror = "2.0.21"
 time = { version = "0.3.45", features = ["serde", "macros", "formatting", "parsing"] }
@@ -38,4 +45,5 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt", "jso
 
 [dev-dependencies]
 http-body-util = "0.1.5"
+testcontainers-modules = { version = "0.15.0", features = ["mariadb"] }
 tower = { version = "0.5.3", features = ["util"] }
