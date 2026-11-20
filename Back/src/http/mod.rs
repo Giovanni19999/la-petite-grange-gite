@@ -2,6 +2,7 @@
 //!
 //! Handlers stay thin: extract the request, call a use case, map to a DTO.
 
+pub mod auth;
 pub mod error;
 pub mod health;
 
@@ -15,6 +16,7 @@ use crate::app_state::AppState;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health::health))
+        .nest("/api/auth", auth::routes())
         .fallback(error::not_found)
         .layer(TraceLayer::new_for_http())
         .with_state(state)

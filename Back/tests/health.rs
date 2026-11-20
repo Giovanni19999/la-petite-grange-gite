@@ -7,7 +7,9 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use gite_api::app_state::AppState;
 use gite_api::application::health::{BoxFuture, DatabaseProbe};
+use gite_api::config::Config;
 use gite_api::http::router;
+use gite_api::wiring;
 use http_body_util::BodyExt;
 use serde_json::Value;
 use tower::ServiceExt;
@@ -24,10 +26,23 @@ impl DatabaseProbe for FakeDatabase {
 }
 
 fn app(database_reachable: bool) -> axum::Router {
+    // The auth service is not used by these routes: a pool that never connects is enough.
+    let pool = sqlx::mysql::MySqlPoolOptions::new()
+        .connect_lazy("mysql://unused@127.0.0.1:1/unused")
+        .unwrap();
+    let defaults = Config::from_lookup(|name| match name {
+        "APP_ENV" => Some("test".to_owned()),
+        "DATABASE_URL" => Some("mysql://unused@127.0.0.1:1/unused".to_owned()),
+        _ => None,
+    })
+    .unwrap();
+    let auth =
+        wiring::auth_service(&pool, defaults.session_policy, defaults.login_throttle).unwrap();
     router(AppState {
         database: Arc::new(FakeDatabase {
             reachable: database_reachable,
         }),
+        auth: Arc::new(auth),
     })
 }
 

@@ -14,3 +14,4 @@ pub mod domain;
 pub mod http;
 pub mod infrastructure;
 pub mod telemetry;
+pub mod wiring;

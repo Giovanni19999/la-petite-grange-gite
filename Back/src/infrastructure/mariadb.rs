@@ -24,6 +24,18 @@ pub fn lazy_pool(config: &Config) -> Result<MySqlPool, sqlx::Error> {
         .connect_lazy(config.database_url.expose())
 }
 
+/// SQL migrations embedded in the binary (`Back/migrations`).
+pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
+
+/// Applies the pending migrations.
+///
+/// # Errors
+///
+/// Returns an error when the database is unreachable or a migration fails.
+pub async fn migrate(pool: &MySqlPool) -> Result<(), sqlx::migrate::MigrateError> {
+    MIGRATOR.run(pool).await
+}
+
 /// Health probe running `SELECT 1` on the pool.
 #[derive(Debug, Clone)]
 pub struct MariaDbProbe {
