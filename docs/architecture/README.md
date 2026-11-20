@@ -86,7 +86,7 @@ Rule: `domain` depends on nothing external; the driving adapters `http` and `cli
 
 ## 6. Deployment
 
-Docker Compose on one VPS (`deploy/compose.yaml`, [ADR-0012](../adr/0012-separate-containers-for-api-and-front.md)): Caddy (only published port, Let's Encrypt), Front image (Node SSR, non-root), API image (distroless, non-root), MariaDB on an internal network; daily `mariadb-dump` + uploads backup off-site with rotation.
+Docker Compose on one VPS (`deploy/compose.yaml`, [ADR-0012](../adr/0012-separate-containers-for-api-and-front.md)): Caddy (only published port, Let's Encrypt), Front image (Node SSR, non-root), API image (static musl binary on distroless static, non-root, [ADR-0016](../adr/0016-static-api-binary-on-distroless-static.md)), MariaDB on an internal network; daily `mariadb-dump` + uploads backup off-site with rotation.
 
 The Angular SSR server only answers requests whose `Host` header is allowed (SSRF protection): `localhost` and `127.0.0.1` in `Front/angular.json`; the production domain must be added there (or in `NG_ALLOWED_HOSTS`) when it is bought.
 
