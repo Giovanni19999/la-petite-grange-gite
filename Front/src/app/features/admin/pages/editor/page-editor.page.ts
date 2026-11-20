@@ -27,6 +27,7 @@ import {
   publishSummary,
   toPreviewBlock,
 } from '../data-access/page-content';
+import { MediaStore } from '../../media/data-access/media.store';
 import { PageEditorStore, SaveStatus } from '../data-access/page-editor.store';
 import { BlockPanel } from '../ui/block-panel';
 import { HistoryDialog } from '../ui/history-dialog';
@@ -232,7 +233,7 @@ const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
                       }
                       @if (block.type === 'gallery' && block.images.length === 0) {
                         <p class="p-6 text-center text-sm text-muted-foreground">
-                          Galerie vide : les photos arrivent avec la médiathèque.
+                          Galerie vide : ajoutez des photos dans le panneau du bloc.
                         </p>
                       }
                     </div>
@@ -426,6 +427,7 @@ const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
 })
 export class PageEditorPage {
   protected readonly store = inject(PageEditorStore);
+  private readonly media = inject(MediaStore);
 
   /** Route parameter. */
   readonly id = input.required({ transform: numberAttribute });
@@ -465,6 +467,7 @@ export class PageEditorPage {
 
   constructor() {
     effect(() => void this.store.load(this.id()));
+    void this.media.ensureLoaded();
     const media = typeof matchMedia === 'function' ? matchMedia(WIDE_SCREEN_QUERY) : null;
     if (media) {
       this.isWide.set(media.matches);
@@ -490,7 +493,7 @@ export class PageEditorPage {
   }
 
   protected preview = (block: Parameters<typeof toPreviewBlock>[0]) =>
-    toPreviewBlock(block, this.store.lang());
+    toPreviewBlock(block, this.store.lang(), this.media.byId());
 
   protected select(id: string): void {
     this.store.selectedId.set(id);

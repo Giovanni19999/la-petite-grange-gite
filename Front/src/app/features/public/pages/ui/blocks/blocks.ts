@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
+import { ResponsiveImage } from '../../../../../shared/media/responsive-image';
 import {
   Align,
   ColumnsBlock,
@@ -28,15 +29,27 @@ const HERO_HEIGHT: Record<HeroBlock['height'], string> = {
   large: 'min-h-[70vh]',
 };
 
-/** Large banner: title (the page h1), subtitle and call to action. Image comes with F003. */
+/** Large banner: photo (darkened), title (the page h1), subtitle and call to action. */
 @Component({
   selector: 'app-hero-block',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ResponsiveImage],
   template: `
     <div
-      class="relative flex flex-col justify-center gap-4 bg-gradient-to-br from-primary to-primary/70 px-4 py-16 text-primary-foreground"
+      class="relative isolate flex flex-col justify-center gap-4 overflow-hidden bg-gradient-to-br from-primary to-primary/70 px-4 py-16 text-primary-foreground"
       [class]="heightClass() + ' ' + alignClass()"
     >
+      @if (block().image; as image) {
+        <div class="absolute inset-0 -z-10">
+          <app-responsive-image
+            [image]="image"
+            sizes="100vw"
+            [priority]="priority()"
+            imageClass="h-full w-full object-cover"
+          />
+          <div class="absolute inset-0 bg-black" [style.opacity]="block().darken / 100"></div>
+        </div>
+      }
       <div class="mx-auto flex w-full max-w-4xl flex-col gap-4" [class]="alignClass()">
         <h1
           class="text-4xl font-semibold tracking-tight @2xl:text-5xl"
@@ -67,6 +80,8 @@ const HERO_HEIGHT: Record<HeroBlock['height'], string> = {
 })
 export class HeroBlockView {
   readonly block = input.required<HeroBlock>();
+  /** First image of the page (loaded at once). */
+  readonly priority = input(false);
   protected readonly isFallback = isFallback;
   protected readonly heightClass = computed(() => HERO_HEIGHT[this.block().height]);
   protected readonly alignClass = computed(() => ITEMS_ALIGN[this.block().align]);
@@ -95,6 +110,7 @@ export class TextBlockView {
 @Component({
   selector: 'app-text-image-block',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ResponsiveImage],
   template: `
     <div class="mx-auto grid max-w-5xl gap-8 px-4" [class]="gridClass()">
       <div
@@ -102,19 +118,31 @@ export class TextBlockView {
         [class.opacity-60]="isFallback(block(), 'body')"
         [innerHTML]="block().body"
       ></div>
-      @if (block().image !== null) {
-        <div
-          class="aspect-[4/3] rounded-lg bg-muted"
+      @if (block().image; as image) {
+        <figure
+          class="flex flex-col gap-2"
           [class]="block().image_position === 'left' ? '@3xl:order-first' : ''"
-          role="img"
-          aria-label=""
-        ></div>
+        >
+          <div class="aspect-[4/3] overflow-hidden rounded-lg bg-muted">
+            <app-responsive-image
+              [image]="image"
+              sizes="(min-width: 768px) 50vw, 100vw"
+              [priority]="priority()"
+              imageClass="h-full w-full object-cover"
+            />
+          </div>
+          @if (image.caption) {
+            <figcaption class="text-sm text-muted-foreground">{{ image.caption }}</figcaption>
+          }
+        </figure>
       }
     </div>
   `,
 })
 export class TextImageBlockView {
   readonly block = input.required<TextImageBlock>();
+  /** First image of the page (loaded at once). */
+  readonly priority = input(false);
   protected readonly isFallback = isFallback;
   protected readonly gridClass = computed(() => {
     if (this.block().image === null) {
@@ -161,15 +189,28 @@ export class ColumnsBlockView {
   );
 }
 
-/** Image grid. Images are shown once the media library exists (F003). */
+/** Image grid: square thumbnails cut around each photo's focal point, with captions. */
 @Component({
   selector: 'app-gallery-block',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ResponsiveImage],
   template: `
     @if (block().images.length > 0) {
       <div class="mx-auto grid max-w-5xl grid-cols-2 gap-2 px-4" [class]="columnsClass()">
-        @for (image of block().images; track image) {
-          <div class="aspect-square rounded-md bg-muted"></div>
+        @for (image of block().images; track image.id; let first = $first) {
+          <figure class="flex flex-col gap-1">
+            <div class="aspect-square overflow-hidden rounded-md bg-muted">
+              <app-responsive-image
+                [image]="image"
+                [sizes]="sizes()"
+                [priority]="priority() && first"
+                imageClass="h-full w-full object-cover"
+              />
+            </div>
+            @if (image.caption) {
+              <figcaption class="text-sm text-muted-foreground">{{ image.caption }}</figcaption>
+            }
+          </figure>
         }
       </div>
     }
@@ -177,6 +218,12 @@ export class ColumnsBlockView {
 })
 export class GalleryBlockView {
   readonly block = input.required<GalleryBlock>();
+  /** First image of the page (loaded at once). */
+  readonly priority = input(false);
+  /** One column out of 2 on phones, out of the chosen number from 768 px. */
+  protected readonly sizes = computed(
+    () => `(min-width: 768px) ${Math.round(100 / this.block().columns)}vw, 50vw`,
+  );
   protected readonly columnsClass = computed(
     () => ({ 3: '@3xl:grid-cols-3', 4: '@3xl:grid-cols-4' })[this.block().columns] ?? '',
   );

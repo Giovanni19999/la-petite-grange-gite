@@ -1,5 +1,7 @@
 import { Lang, PublicBlock } from '../../../public/pages/data-access/pages.models';
 import { PublishSummary, PublishSummaryLine } from '../../../../shared/publish/publish-summary';
+import { toPublicImage } from '../../media/data-access/media.api';
+import { Media } from '../../media/data-access/media.models';
 import {
   BlockType,
   ChangeSummary,
@@ -143,8 +145,16 @@ export function resolveText(text: Localized, lang: Lang): string {
  * The block as the public site receives it in `lang` (texts resolved), plus the names of the
  * texts that fall back to French, shown greyed out in the editor preview.
  */
-export function toPreviewBlock(block: DraftBlock, lang: Lang): PublicBlock {
+export function toPreviewBlock(
+  block: DraftBlock,
+  lang: Lang,
+  media: ReadonlyMap<number, Media> = new Map(),
+): PublicBlock {
   const fallback: string[] = [];
+  const image = (id: number | null) => {
+    const found = id === null ? undefined : media.get(id);
+    return found ? toPublicImage(found, lang) : null;
+  };
   const text = (value: Localized, name: string): string => {
     if (isFallback(value, lang)) {
       fallback.push(name);
@@ -163,7 +173,7 @@ export function toPreviewBlock(block: DraftBlock, lang: Lang): PublicBlock {
       preview = {
         ...common,
         type: 'hero',
-        image: block.image,
+        image: image(block.image),
         title: text(block.title, 'title'),
         subtitle: text(block.subtitle, 'subtitle'),
         button_label: text(block.button_label, 'button_label'),
@@ -187,7 +197,7 @@ export function toPreviewBlock(block: DraftBlock, lang: Lang): PublicBlock {
         ...common,
         type: 'text_image',
         body: text(block.body, 'body'),
-        image: block.image,
+        image: image(block.image),
         image_position: block.image_position,
         ratio: block.ratio,
       };
@@ -203,7 +213,12 @@ export function toPreviewBlock(block: DraftBlock, lang: Lang): PublicBlock {
       };
       break;
     case 'gallery':
-      preview = { ...common, type: 'gallery', images: block.images, columns: block.columns };
+      preview = {
+        ...common,
+        type: 'gallery',
+        images: block.images.flatMap((id) => image(id) ?? []),
+        columns: block.columns,
+      };
       break;
   }
   return fallback.length > 0 ? { ...preview, fallback } : preview;

@@ -5,6 +5,19 @@ export type Background = 'background' | 'muted' | 'primary';
 export type Spacing = 'small' | 'medium' | 'large';
 export type Align = 'left' | 'center' | 'right';
 
+/** An image of the media library, resolved by the API for the page language (F003). */
+export interface PublicImage {
+  id: number;
+  width: number;
+  height: number;
+  /** WebP versions, ascending widths. */
+  sources: { width: number; url: string }[];
+  alt: string;
+  caption: string;
+  focal_x: number;
+  focal_y: number;
+}
+
 interface BlockBase {
   id: string;
   background: Background;
@@ -16,7 +29,7 @@ interface BlockBase {
 
 export interface HeroBlock extends BlockBase {
   type: 'hero';
-  image: number | null;
+  image: PublicImage | null;
   title: string;
   subtitle: string;
   button_label: string;
@@ -36,7 +49,7 @@ export interface TextBlock extends BlockBase {
 export interface TextImageBlock extends BlockBase {
   type: 'text_image';
   body: string;
-  image: number | null;
+  image: PublicImage | null;
   image_position: 'left' | 'right';
   ratio: '50-50' | '33-67';
 }
@@ -48,7 +61,7 @@ export interface ColumnsBlock extends BlockBase {
 
 export interface GalleryBlock extends BlockBase {
   type: 'gallery';
-  images: number[];
+  images: PublicImage[];
   columns: number;
 }
 

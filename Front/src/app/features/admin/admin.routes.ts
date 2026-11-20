@@ -30,6 +30,11 @@ export const adminRoutes: Routes = [
           import('./pages/pages-list/pages-list.page').then((m) => m.PagesListPage),
       },
       {
+        path: 'medias',
+        title: 'Médiathèque - La Petite Grange',
+        loadComponent: () => import('./media/media-library.page').then((m) => m.MediaLibraryPage),
+      },
+      {
         path: 'pages/:id',
         title: 'Modifier la page - La Petite Grange',
         canDeactivate: [leaveEditor],

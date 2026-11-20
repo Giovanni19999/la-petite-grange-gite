@@ -17,8 +17,9 @@ import { AuthStore } from '../../../core/auth/auth.store';
         <button hlmBtn variant="outline" type="button" (click)="logout()">Se déconnecter</button>
       </div>
       <p class="mt-2 text-muted-foreground">Connecté en tant que {{ store.user()?.email }}.</p>
-      <nav class="mt-8" aria-label="Administration">
+      <nav class="mt-8 flex flex-wrap gap-2" aria-label="Administration">
         <a hlmBtn variant="outline" routerLink="/admin/pages">Pages du site</a>
+        <a hlmBtn variant="outline" routerLink="/admin/medias">Médiathèque</a>
       </nav>
     </section>
   `,

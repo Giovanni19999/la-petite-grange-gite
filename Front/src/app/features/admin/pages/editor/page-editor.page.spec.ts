@@ -7,9 +7,30 @@ import { RouterTestingHarness } from '@angular/router/testing';
 
 import { AdminPage, DraftHeroBlock } from '../data-access/admin-pages.models';
 import { newBlock, newPageContent } from '../data-access/page-content';
+import { Media } from '../../media/data-access/media.models';
 import { PageEditorPage } from './page-editor.page';
 
 const PAGE_URL = '/api/admin/pages/1';
+const MEDIA_URL = '/api/admin/media';
+
+/** Media library of the tests: one described photo (F003). */
+const MEDIA: Media[] = [
+  {
+    id: 7,
+    width: 1920,
+    height: 1280,
+    sources: [
+      { width: 480, url: '/uploads/abc-480.webp' },
+      { width: 960, url: '/uploads/abc-960.webp' },
+    ],
+    alt: { fr: 'La grange au soleil', en: '' },
+    caption: { fr: '', en: '' },
+    focal: { x: 30, y: 70 },
+    missing_alt: false,
+    used_in: [],
+    created_at: '2026-11-20T10:00:00Z',
+  },
+];
 
 function adminPage(): AdminPage {
   const draft = {
@@ -67,6 +88,7 @@ describe('F023 page editor', () => {
     http = TestBed.inject(HttpTestingController);
     await harness.navigateByUrl('/admin/pages/1');
     http.expectOne(PAGE_URL).flush(adminPage());
+    http.expectOne(MEDIA_URL).flush(MEDIA);
     await settle();
   }
 
@@ -157,6 +179,27 @@ describe('F023 page editor', () => {
     const drawer = document.querySelector('hlm-sheet-content');
     expect(drawer?.getAttribute('data-side')).toBe('bottom');
     expect(drawer?.textContent).toContain('Bandeau');
+  });
+
+  it('F003-S08 a photo chosen for the hero is shown in the preview', async () => {
+    await open();
+    previewBlocks()[0].querySelector<HTMLElement>('[role="button"]')!.click();
+    await settle();
+    button('Choisir une image', root().querySelector('aside')!).click();
+    await settle();
+    (document.querySelector('[data-testid="picker-tile"]') as HTMLButtonElement).click();
+    await settle();
+
+    const img = previewBlocks()[0].querySelector('img')!;
+    expect(img.getAttribute('srcset')).toBe(
+      '/uploads/abc-480.webp 480w, /uploads/abc-960.webp 960w',
+    );
+    expect(img.getAttribute('alt')).toBe('La grange au soleil');
+    expect(img.style.objectPosition).toBe('30% 70%');
+    expect(root().querySelector('[data-testid="save-status"]')?.textContent).toContain(
+      'Modifications en cours',
+    );
+    http.match(() => true);
   });
 
   it('F023-S12 publishing asks for confirmation with the summary, focus on "Annuler"', async () => {
