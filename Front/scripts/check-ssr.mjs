@@ -20,8 +20,17 @@ const css = stylesFile ? readFileSync(join(browserDir, stylesFile), 'utf8') : ''
 if (!/color-scheme:\s*light/.test(css)) {
   failures.push('F021-S02: the stylesheet does not set color-scheme: light.');
 }
-if (/\.dark\b|prefers-color-scheme:\s*dark/.test(css)) {
-  failures.push('F021-S02: the stylesheet contains a dark theme.');
+// spartan/ui components carry inert `dark:` utilities (`:is(.dark *)`), active only under a
+// `.dark` class that the site never sets. A dark theme would show up as a media query on the
+// device color scheme, as theme variables redefined for `.dark`, or as the class on the page.
+if (/prefers-color-scheme:\s*dark/.test(css)) {
+  failures.push('F021-S02: the stylesheet follows the dark color scheme of the device.');
+}
+if (/(^|[}\s,]):root\.dark|(^|[}\s,])\.dark\s*\{/.test(css)) {
+  failures.push('F021-S02: the stylesheet defines dark theme variables.');
+}
+if (/class="[^"]*\bdark\b/.test(html)) {
+  failures.push('F021-S02: the page enables the dark class.');
 }
 
 if (failures.length > 0) {
