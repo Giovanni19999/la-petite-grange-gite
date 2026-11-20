@@ -23,6 +23,7 @@ print_stdout = "warn"
 module_name_repetitions = "allow"
 
 [dependencies]
+ammonia = "4.2.5"
 anyhow = "1.0.104"
 argon2 = "0.6.0"
 axum = "0.8.9"
