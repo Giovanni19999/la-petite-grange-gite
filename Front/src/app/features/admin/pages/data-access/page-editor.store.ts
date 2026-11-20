@@ -200,15 +200,16 @@ export class PageEditorStore {
       );
       this.draftVersion.set(result.draft_version);
       this.problems.set(NO_PROBLEMS);
-      if (this.content() === content) {
-        this.status.set('saved');
-      } else {
-        // Changed while saving: save the newer content too.
-        this.status.set('pending');
-        this.timer = setTimeout(() => void this.save(), AUTOSAVE_DELAY_MS);
-      }
+      this.status.set('saved');
     } catch (error) {
       this.onSaveError(error);
+    }
+    // Changed while saving (the answer is about older content): save the newer content too,
+    // whether this save succeeded or was refused.
+    if (this.content() !== content && this.status() !== 'conflict') {
+      this.status.set('pending');
+      this.clearTimer();
+      this.timer = setTimeout(() => void this.save(), AUTOSAVE_DELAY_MS);
     }
   }
 

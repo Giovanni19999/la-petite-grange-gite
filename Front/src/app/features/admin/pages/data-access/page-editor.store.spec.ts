@@ -133,6 +133,26 @@ describe('F023 page editor store', () => {
     expect((store.content()!.blocks[0] as DraftHeroBlock).title.fr).toBe('Titre gardé');
   });
 
+  it('F023-S04 a change made while a refused save is in flight is saved afterwards', async () => {
+    changeTitle('');
+    await autosave();
+    const refused = http.expectOne(`${PAGE_URL}/draft`);
+    changeTitle('Titre corrigé');
+    refused.flush(
+      { error: { code: 'invalid_content', message: 'Contenu invalide', details: ['x'] } },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.status()).toBe('pending');
+
+    await autosave();
+    const retried = http.expectOne(`${PAGE_URL}/draft`);
+    expect(retried.request.body.content.blocks[0].title.fr).toBe('Titre corrigé');
+    retried.flush({ draft_version: 5 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.status()).toBe('saved');
+  });
+
   it('F023-S11 a draft changed elsewhere stops autosave until the latest draft is loaded', async () => {
     changeTitle('Mon titre');
     await autosave();
