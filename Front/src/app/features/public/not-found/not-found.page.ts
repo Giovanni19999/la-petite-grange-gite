@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, RESPONSE_INIT, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-/** Shown for any unknown URL (served with HTTP 404 by the server). */
+/** Shown for any unknown URL; sets the HTTP status to 404 when rendered on the server. */
 @Component({
   selector: 'app-not-found-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,4 +16,11 @@ import { RouterLink } from '@angular/router';
     </section>
   `,
 })
-export class NotFoundPage {}
+export class NotFoundPage {
+  constructor() {
+    const response = inject(RESPONSE_INIT, { optional: true });
+    if (response) {
+      response.status = 404;
+    }
+  }
+}

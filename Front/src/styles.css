@@ -55,3 +55,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Rich text written by the owners (F002): sanitised by the API, styled here. */
+@layer components {
+  .rich-text {
+    @apply flex flex-col gap-3 leading-relaxed;
+  }
+  .rich-text h2 {
+    @apply text-2xl font-semibold;
+  }
+  .rich-text h3 {
+    @apply text-xl font-semibold;
+  }
+  .rich-text h4 {
+    @apply text-lg font-semibold;
+  }
+  .rich-text ul {
+    @apply list-disc pl-6;
+  }
+  .rich-text ol {
+    @apply list-decimal pl-6;
+  }
+  .rich-text a {
+    @apply underline underline-offset-4;
+  }
+}
