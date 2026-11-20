@@ -21,6 +21,12 @@ pub enum ApiError {
     InvalidCredentials,
     #[error("Trop de tentatives de connexion, réessayez dans quelques minutes")]
     TooManyAttempts,
+    /// The submitted content breaks business rules; `details` lists every problem.
+    #[error("Contenu invalide")]
+    Invalid(Vec<String>),
+    /// The request conflicts with the current state (stale version, duplicate…).
+    #[error("{message}")]
+    Conflict { code: &'static str, message: String },
     #[error("Erreur interne")]
     Internal(#[source] anyhow::Error),
 }
@@ -32,6 +38,8 @@ impl ApiError {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Unauthorized | Self::InvalidCredentials => StatusCode::UNAUTHORIZED,
             Self::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
+            Self::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::Conflict { .. } => StatusCode::CONFLICT,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -43,6 +51,8 @@ impl ApiError {
             Self::Unauthorized => "unauthorized",
             Self::InvalidCredentials => "invalid_credentials",
             Self::TooManyAttempts => "too_many_attempts",
+            Self::Invalid(_) => "invalid_content",
+            Self::Conflict { code, .. } => code,
             Self::Internal(_) => "internal_error",
         }
     }
@@ -63,6 +73,8 @@ struct ErrorBody {
 struct ErrorDetail {
     code: &'static str,
     message: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    details: Vec<String>,
 }
 
 impl IntoResponse for ApiError {
@@ -70,10 +82,15 @@ impl IntoResponse for ApiError {
         if let Self::Internal(source) = &self {
             tracing::error!(error = ?source, "internal error");
         }
+        let details = match &self {
+            Self::Invalid(details) => details.clone(),
+            _ => Vec::new(),
+        };
         let body = ErrorBody {
             error: ErrorDetail {
                 code: self.code(),
                 message: self.to_string(),
+                details,
             },
         };
         (self.status(), Json(body)).into_response()
