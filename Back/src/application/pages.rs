@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 use crate::application::auth::Clock;
 use crate::application::health::BoxFuture;
 use crate::domain::auth::UserId;
-use crate::domain::page::{ChangeSummary, ContentError, Lang, PageContent};
+use crate::domain::page::{ChangeSummary, ContentError, Lang, MediaId, PageContent};
 
 /// Identifier of a page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -73,6 +73,12 @@ pub trait PageRepository: Send + Sync {
     fn delete(&self, id: PageId) -> BoxFuture<'_, anyhow::Result<()>>;
 }
 
+/// Port: which media of the library exist (F003), to refuse unknown images in a draft.
+pub trait MediaCatalog: Send + Sync {
+    /// The ids among `ids` that exist in the media library.
+    fn existing<'a>(&'a self, ids: &'a [MediaId]) -> BoxFuture<'a, anyhow::Result<Vec<MediaId>>>;
+}
+
 /// Why a page operation failed.
 #[derive(Debug, thiserror::Error)]
 pub enum PageError {
@@ -88,6 +94,8 @@ pub enum PageError {
     HomeCannotBeDeleted,
     #[error("version introuvable")]
     VersionNotFound,
+    #[error("image introuvable dans la médiathèque : {}", ids.iter().map(|id| format!("n° {}", id.0)).collect::<Vec<_>>().join(", "))]
+    UnknownMedia { ids: Vec<MediaId> },
     #[error(transparent)]
     Internal(#[from] anyhow::Error),
 }
@@ -111,6 +119,7 @@ pub struct MenuEntry {
 pub struct PageService {
     pages: Arc<dyn PageRepository>,
     clock: Arc<dyn Clock>,
+    media: Arc<dyn MediaCatalog>,
 }
 
 impl fmt::Debug for PageService {
@@ -121,8 +130,16 @@ impl fmt::Debug for PageService {
 
 impl PageService {
     #[must_use]
-    pub fn new(pages: Arc<dyn PageRepository>, clock: Arc<dyn Clock>) -> Self {
-        Self { pages, clock }
+    pub fn new(
+        pages: Arc<dyn PageRepository>,
+        clock: Arc<dyn Clock>,
+        media: Arc<dyn MediaCatalog>,
+    ) -> Self {
+        Self {
+            pages,
+            clock,
+            media,
+        }
     }
 
     // ----- Public (visitors): published content only -----
@@ -206,6 +223,7 @@ impl PageService {
     /// Invalid content, slug already used, or infrastructure errors.
     pub async fn create(&self, raw: &serde_json::Value) -> Result<PageId, PageError> {
         let content = PageContent::parse(raw).map_err(PageError::Invalid)?;
+        self.check_media_exist(&content).await?;
         self.check_slugs_free(None, &content).await?;
         Ok(self.pages.create(&content).await?)
     }
@@ -223,6 +241,7 @@ impl PageService {
     ) -> Result<u32, PageError> {
         let content = PageContent::parse(raw).map_err(PageError::Invalid)?;
         let page = self.get(id).await?;
+        self.check_media_exist(&content).await?;
         self.check_slugs_free(Some(id), &content).await?;
         self.pages
             .save_draft(id, expected_version, &content)
@@ -317,6 +336,24 @@ impl PageService {
         Ok(self.pages.delete(id).await?)
     }
 
+    /// Every image of the content must exist in the media library.
+    async fn check_media_exist(&self, content: &PageContent) -> Result<(), PageError> {
+        let used = content.media_ids();
+        if used.is_empty() {
+            return Ok(());
+        }
+        let existing = self.media.existing(&used).await?;
+        let unknown: Vec<MediaId> = used
+            .into_iter()
+            .filter(|id| !existing.contains(id))
+            .collect();
+        if unknown.is_empty() {
+            Ok(())
+        } else {
+            Err(PageError::UnknownMedia { ids: unknown })
+        }
+    }
+
     /// A slug must not be used by the draft or published content of another page.
     async fn check_slugs_free(
         &self,
@@ -372,6 +409,25 @@ pub mod fakes {
     impl InMemoryPages {
         pub fn insert(&self, page: StoredPage) {
             self.pages.lock().unwrap().push(page);
+        }
+    }
+
+    /// Media library containing exactly the given ids.
+    #[derive(Debug, Default)]
+    pub struct KnownMedia(pub Vec<MediaId>);
+
+    impl MediaCatalog for KnownMedia {
+        fn existing<'a>(
+            &'a self,
+            ids: &'a [MediaId],
+        ) -> BoxFuture<'a, anyhow::Result<Vec<MediaId>>> {
+            Box::pin(async move {
+                Ok(ids
+                    .iter()
+                    .copied()
+                    .filter(|id| self.0.contains(id))
+                    .collect())
+            })
         }
     }
 
@@ -530,7 +586,7 @@ mod tests {
     use serde_json::json;
     use time::macros::datetime;
 
-    use super::fakes::InMemoryPages;
+    use super::fakes::{InMemoryPages, KnownMedia};
     use super::*;
     use crate::application::auth::fakes::FixedClock;
 
@@ -551,7 +607,8 @@ mod tests {
     async fn service() -> (PageService, Arc<InMemoryPages>) {
         let pages = Arc::new(InMemoryPages::default());
         let clock = Arc::new(FixedClock(Mutex::new(datetime!(2026-11-20 10:00 UTC))));
-        let service = PageService::new(pages.clone(), clock);
+        let media = Arc::new(KnownMedia(vec![MediaId(7)]));
+        let service = PageService::new(pages.clone(), clock, media);
         let home = PageContent::parse(&content("accueil", "home", "Accueil")).unwrap();
         pages.insert(StoredPage {
             id: PageId(1),
@@ -563,6 +620,30 @@ mod tests {
         });
         service.publish(PageId(1), 1, OWNER).await.unwrap();
         (service, pages)
+    }
+
+    #[tokio::test]
+    async fn f003_s08_draft_with_unknown_media_is_refused() {
+        let (service, _) = service().await;
+        let mut with_images = content("accueil", "home", "Accueil");
+        with_images["blocks"] = json!([
+            { "id": "g", "type": "gallery", "images": [7, 99] }
+        ]);
+
+        let error = service
+            .save_draft(PageId(1), 1, &with_images)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(&error, PageError::UnknownMedia { ids } if ids == &vec![MediaId(99)]),
+            "{error:?}"
+        );
+
+        with_images["blocks"] = json!([{ "id": "g", "type": "gallery", "images": [7] }]);
+        service
+            .save_draft(PageId(1), 1, &with_images)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

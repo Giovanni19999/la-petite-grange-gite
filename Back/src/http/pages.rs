@@ -12,9 +12,10 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::app_state::AppState;
 use crate::application::pages::{MenuEntry, PageError, PageId, PageVersion, StoredPage};
-use crate::domain::page::{Block, BlockKind, ChangeSummary, Lang, PageContent};
+use crate::domain::page::{Block, BlockKind, ChangeSummary, Lang, MediaId, PageContent};
 use crate::http::auth::AdminUser;
 use crate::http::error::ApiError;
+use crate::http::media::{ImageMap, public_image};
 
 /// Public routes, mounted under `/api/pages`.
 pub fn public_routes() -> Router<AppState> {
@@ -55,6 +56,7 @@ impl From<PageError> for ApiError {
                 code: "home_page",
                 message: error.to_string(),
             },
+            PageError::UnknownMedia { .. } => Self::Invalid(vec![error.to_string()]),
             PageError::Internal(error) => Self::Internal(error),
         }
     }
@@ -123,8 +125,15 @@ pub struct PublicPageResponse {
     blocks: Vec<Value>,
 }
 
-/// A block with its texts resolved in `lang` (English falls back to French).
-fn public_block(block: &Block, lang: Lang) -> Value {
+/// An image of the media library in `lang`, or `null` when it no longer exists.
+fn image_json(id: Option<&MediaId>, images: &ImageMap, lang: Lang) -> Value {
+    id.and_then(|id| images.get(id))
+        .map_or(Value::Null, |image| public_image(image, lang))
+}
+
+/// A block with its texts resolved in `lang` (English falls back to French) and its images
+/// resolved to their public files.
+fn public_block(block: &Block, lang: Lang, images: &ImageMap) -> Value {
     let mut value = match &block.kind {
         BlockKind::Hero {
             image,
@@ -136,7 +145,7 @@ fn public_block(block: &Block, lang: Lang) -> Value {
             height,
             darken,
         } => json!({
-            "type": "hero", "image": image, "title": title.get(lang), "subtitle": subtitle.get(lang),
+            "type": "hero", "image": image_json(image.as_ref(), images, lang), "title": title.get(lang), "subtitle": subtitle.get(lang),
             "button_label": button_label.get(lang), "button_link": button_link,
             "align": align, "height": height, "darken": darken
         }),
@@ -149,7 +158,7 @@ fn public_block(block: &Block, lang: Lang) -> Value {
             image_position,
             ratio,
         } => json!({
-            "type": "text_image", "body": body.get(lang), "image": image,
+            "type": "text_image", "body": body.get(lang), "image": image_json(image.as_ref(), images, lang),
             "image_position": image_position, "ratio": ratio
         }),
         BlockKind::Columns { items } => json!({
@@ -158,8 +167,18 @@ fn public_block(block: &Block, lang: Lang) -> Value {
                 "title": item.title.get(lang), "body": item.body.get(lang)
             })).collect::<Vec<_>>()
         }),
-        BlockKind::Gallery { images, columns } => {
-            json!({ "type": "gallery", "images": images, "columns": columns })
+        BlockKind::Gallery {
+            images: gallery,
+            columns,
+        } => {
+            json!({
+                "type": "gallery",
+                "images": gallery
+                    .iter()
+                    .filter_map(|id| images.get(id).map(|image| public_image(image, lang)))
+                    .collect::<Vec<_>>(),
+                "columns": columns
+            })
         }
     };
     if let Value::Object(map) = &mut value {
@@ -171,7 +190,12 @@ fn public_block(block: &Block, lang: Lang) -> Value {
     value
 }
 
-fn public_page(page: &StoredPage, content: &PageContent, lang: Lang) -> PublicPageResponse {
+fn public_page(
+    page: &StoredPage,
+    content: &PageContent,
+    lang: Lang,
+    images: &ImageMap,
+) -> PublicPageResponse {
     PublicPageResponse {
         lang,
         title: content.settings.title.get(lang).to_owned(),
@@ -184,7 +208,7 @@ fn public_page(page: &StoredPage, content: &PageContent, lang: Lang) -> PublicPa
             .blocks
             .iter()
             .filter(|block| block.visible)
-            .map(|block| public_block(block, lang))
+            .map(|block| public_block(block, lang, images))
             .collect(),
     }
 }
@@ -194,7 +218,16 @@ async fn home(
     Query(query): Query<LangQuery>,
 ) -> Result<Json<PublicPageResponse>, ApiError> {
     let found = state.pages.public_home().await?.ok_or(ApiError::NotFound)?;
-    Ok(Json(public_page(&found.page, &found.content, query.lang)))
+    let images = state
+        .media
+        .public_images(&found.content.media_ids())
+        .await?;
+    Ok(Json(public_page(
+        &found.page,
+        &found.content,
+        query.lang,
+        &images,
+    )))
 }
 
 async fn by_slug(
@@ -207,7 +240,16 @@ async fn by_slug(
         .public_page(query.lang, &slug)
         .await?
         .ok_or(ApiError::NotFound)?;
-    Ok(Json(public_page(&found.page, &found.content, query.lang)))
+    let images = state
+        .media
+        .public_images(&found.content.media_ids())
+        .await?;
+    Ok(Json(public_page(
+        &found.page,
+        &found.content,
+        query.lang,
+        &images,
+    )))
 }
 
 // ----- Admin -----

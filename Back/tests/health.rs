@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use gite_api::app_state::AppState;
 use gite_api::application::health::{BoxFuture, DatabaseProbe};
 use gite_api::config::Config;
 use gite_api::http::router;
@@ -36,21 +35,19 @@ fn app(database_reachable: bool) -> axum::Router {
         _ => None,
     })
     .unwrap();
-    let auth =
-        wiring::auth_service(&pool, defaults.session_policy, defaults.login_throttle).unwrap();
-    router(AppState {
-        database: Arc::new(FakeDatabase {
-            reachable: database_reachable,
-        }),
-        auth: Arc::new(auth),
-        pages: Arc::new(gite_api::application::pages::PageService::new(
-            Arc::new(gite_api::infrastructure::pages::MariaDbPages::new(
-                pool.clone(),
-            )),
-            Arc::new(gite_api::infrastructure::auth::SystemClock),
-        )),
-        trust_proxy_headers: false,
-    })
+    let media_dir = std::env::temp_dir().join("gite-api-health-test-media");
+    let mut state = wiring::app_state(
+        &pool,
+        defaults.session_policy,
+        defaults.login_throttle,
+        &media_dir,
+        defaults.media,
+    )
+    .unwrap();
+    state.database = Arc::new(FakeDatabase {
+        reachable: database_reachable,
+    });
+    router(state)
 }
 
 async fn get(app: axum::Router, uri: &str) -> (StatusCode, Value) {

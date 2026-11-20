@@ -9,7 +9,9 @@ use axum::extract::ConnectInfo;
 use axum::http::{Request, header};
 use axum::response::Response;
 use gite_api::application::auth::LoginThrottle;
+use gite_api::application::media::MediaSettings;
 use gite_api::domain::auth::{Password, SessionPolicy};
+use gite_api::domain::media::{ImageSettings, UploadLimits};
 use gite_api::http::router;
 use gite_api::infrastructure::mariadb::migrate;
 use gite_api::wiring;
@@ -28,6 +30,8 @@ pub const PASSWORD: &str = "correct horse battery";
 pub struct TestApp {
     router: axum::Router,
     _container: ContainerAsync<Mariadb>,
+    /// Media files of this test (deleted with the app).
+    pub media_dir: tempfile::TempDir,
 }
 
 impl TestApp {
@@ -54,11 +58,27 @@ impl TestApp {
             .create(EMAIL, &Password::new(PASSWORD))
             .await
             .unwrap();
-        let state = wiring::app_state(&pool, policy, throttle).unwrap();
+        let media_dir = tempfile::tempdir().unwrap();
+        let media = MediaSettings {
+            limits: UploadLimits {
+                max_file_bytes: 2 * 1024 * 1024,
+                max_files: 5,
+                max_pixels: 4_000_000,
+            },
+            images: ImageSettings {
+                widths: vec![32, 64, 1920],
+                quality: 80.0,
+            },
+            public_url: "/uploads".to_owned(),
+        };
+        let mut state =
+            wiring::app_state(&pool, policy, throttle, media_dir.path(), media).unwrap();
+        state.serve_media_dir = Some(media_dir.path().join("public"));
 
         Self {
             router: router(state),
             _container: container,
+            media_dir,
         }
     }
 
