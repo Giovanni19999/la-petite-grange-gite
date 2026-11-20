@@ -49,6 +49,9 @@ module.exports = defineConfig([
         'error',
         { type: ['element', 'attribute'], prefix: ['app', 'hlm'], style: 'kebab-case' },
       ],
+      // Generated code: spartan aliases the `class` input and declares some types with `type`.
+      '@angular-eslint/no-input-rename': 'off',
+      '@typescript-eslint/consistent-type-definitions': 'off',
     },
   },
   {
