@@ -1,12 +1,20 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterLink, RouterOutlet } from '@angular/router';
 
+/** Application shell: header and routed page. */
 @Component({
-  imports: [RouterOutlet],
   selector: 'app-root',
-  styleUrl: './app.css',
-  templateUrl: './app.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterOutlet, RouterLink],
+  template: `
+    <header class="border-b">
+      <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <a routerLink="/" class="font-semibold">La Petite Grange</a>
+      </nav>
+    </header>
+    <main>
+      <router-outlet />
+    </main>
+  `,
 })
-export class App {
-  protected readonly title = signal('Front');
-}
+export class App {}
