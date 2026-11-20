@@ -1,0 +1,67 @@
+name: Back-merge main into develop
+
+# Every change that reaches main (release merge or hotfix) is merged back
+# into develop automatically, so develop never misses a fix.
+#
+# Requires the repository secret BACKMERGE_TOKEN: a fine-grained personal
+# access token of a repository admin, limited to this repository, with
+# "Contents: read and write" and "Pull requests: read and write".
+# The develop protection rule must allow administrators to bypass it.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: back-merge
+  cancel-in-progress: false
+
+jobs:
+  back-merge:
+    name: Merge main into develop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the token
+        env:
+          TOKEN: ${{ secrets.BACKMERGE_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::Secret BACKMERGE_TOKEN is missing: merge main into develop manually."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BACKMERGE_TOKEN }}
+
+      - name: Merge, or open a pull request on conflict
+        env:
+          GH_TOKEN: ${{ secrets.BACKMERGE_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch develop
+
+          if git merge-base --is-ancestor origin/main develop; then
+            echo "develop already contains main: nothing to do."
+            exit 0
+          fi
+
+          if git merge --no-ff origin/main -m "chore: merge main into develop"; then
+            git push origin develop
+            echo "main merged into develop."
+          else
+            git merge --abort
+            branch="chore/back-merge-$(git rev-parse --short origin/main)"
+            git switch -c "$branch" origin/main
+            git push origin "$branch"
+            gh pr create --base develop --head "$branch" \
+              --title "chore: merge main into develop" \
+              --body "Automatic back-merge of main into develop failed because of conflicts. Resolve them in this pull request, then merge it with a merge commit."
+            echo "::warning::Conflicts: a pull request was opened to merge main into develop."
+            exit 1
+          fi
