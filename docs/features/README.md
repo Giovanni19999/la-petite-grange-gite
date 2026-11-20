@@ -6,7 +6,7 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 |---|---|---|---|
 | [F000](F000-backend-foundation.md) | Backend foundation: configuration, health check, error format | implemented | 0002, 0003, 0010 |
 | [F001](F001-admin-auth.md) | Owner authentication (admin login) | implemented | 0011 |
-| F002 | Public pages built from blocks (FR/EN), draft/publish with confirmation | draft | 0009 |
+| [F002](F002-block-pages.md) | Pages built from blocks: draft, publication, versions and public rendering (FR/EN) | frozen | 0009, 0013 |
 | F003 | Media library (upload, resize, crop, focal point, alt text) | draft | 0009 |
 | F004 | Availability calendar with the nightly price under each free date | draft | 0005, 0008 |
 | F005 | Blocked periods: closure, family, private event | draft | 0010 |
@@ -27,3 +27,4 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | F020 | Appearance: predefined light themes (blue default) | draft | 0004 |
 | [F021](F021-frontend-foundation.md) | Frontend foundation: Angular SSR, light blue theme, public and admin areas | implemented | 0004 |
 | [F022](F022-containers.md) | Containers: API and front end in separate images, behind Caddy | implemented | 0012 |
+| F023 | Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog) | draft | 0009 |
