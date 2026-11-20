@@ -1,15 +1,15 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 
 import { LOGIN_PATH } from '../../../core/auth/auth.guard';
 import { AuthStore } from '../../../core/auth/auth.store';
 
-/** Admin home placeholder, replaced by the real dashboard in later features. */
+/** Admin home: entry points to the admin features (the full dashboard comes later). */
 @Component({
   selector: 'app-admin-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [HlmButtonImports],
+  imports: [RouterLink, HlmButtonImports],
   template: `
     <section class="mx-auto max-w-3xl px-4 py-10">
       <div class="flex items-center justify-between gap-4">
@@ -17,7 +17,9 @@ import { AuthStore } from '../../../core/auth/auth.store';
         <button hlmBtn variant="outline" type="button" (click)="logout()">Se déconnecter</button>
       </div>
       <p class="mt-2 text-muted-foreground">Connecté en tant que {{ store.user()?.email }}.</p>
-      <p class="mt-6 text-muted-foreground">En construction.</p>
+      <nav class="mt-8" aria-label="Administration">
+        <a hlmBtn variant="outline" routerLink="/admin/pages">Pages du site</a>
+      </nav>
     </section>
   `,
 })
