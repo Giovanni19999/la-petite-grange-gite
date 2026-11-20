@@ -28,7 +28,11 @@ import {
   template: `
     @let b = block();
     @if (b.type === 'hero') {
-      <app-hero-block [block]="b" [class]="b.hide_on_mobile ? '@max-3xl:hidden' : ''" />
+      <app-hero-block
+        [block]="b"
+        [priority]="priority()"
+        [class]="b.hide_on_mobile ? '@max-3xl:hidden' : ''"
+      />
     } @else {
       <app-block-frame
         [background]="b.background"
@@ -40,13 +44,13 @@ import {
             <app-text-block [block]="b" />
           }
           @case ('text_image') {
-            <app-text-image-block [block]="b" />
+            <app-text-image-block [block]="b" [priority]="priority()" />
           }
           @case ('columns') {
             <app-columns-block [block]="b" />
           }
           @case ('gallery') {
-            <app-gallery-block [block]="b" />
+            <app-gallery-block [block]="b" [priority]="priority()" />
           }
         }
       </app-block-frame>
@@ -55,4 +59,15 @@ import {
 })
 export class BlockRenderer {
   readonly block = input.required<PublicBlock>();
+  /** This block holds the first image of the page: load it at once (F003). */
+  readonly priority = input(false);
+}
+
+/** Index of the first block showing an image, or -1. */
+export function firstImageBlock(blocks: readonly PublicBlock[]): number {
+  return blocks.findIndex(
+    (block) =>
+      ((block.type === 'hero' || block.type === 'text_image') && block.image !== null) ||
+      (block.type === 'gallery' && block.images.length > 0),
+  );
 }

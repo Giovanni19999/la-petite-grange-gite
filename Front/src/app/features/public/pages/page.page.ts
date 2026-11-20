@@ -5,7 +5,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { NotFoundPage } from '../not-found/not-found.page';
 import { CurrentPage } from './data-access/current-page';
 import { Lang, PublicPage } from './data-access/pages.models';
-import { BlockRenderer } from './ui/blocks/block-renderer';
+import { BlockRenderer, firstImageBlock } from './ui/blocks/block-renderer';
 
 const SITE_NAME = 'La Petite Grange';
 
@@ -22,8 +22,9 @@ const SITE_NAME = 'La Petite Grange';
             {{ p.title }}
           </h1>
         }
+        @let firstImage = firstImageIndex(p.blocks);
         @for (block of p.blocks; track block.id) {
-          <app-block-renderer [block]="block" />
+          <app-block-renderer [block]="block" [priority]="$index === firstImage" />
         }
       </article>
     } @else {
@@ -34,6 +35,8 @@ const SITE_NAME = 'La Petite Grange';
 export class PageView {
   /** Resolved by `pageResolver`; `null` when the page does not exist. */
   readonly page = input<PublicPage | null>(null);
+
+  protected readonly firstImageIndex = firstImageBlock;
 
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
