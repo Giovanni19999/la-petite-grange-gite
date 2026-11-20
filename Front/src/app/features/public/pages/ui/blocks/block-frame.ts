@@ -14,7 +14,11 @@ const SPACINGS: Record<Spacing, string> = {
   large: 'py-20',
 };
 
-/** Common frame of every block: theme background role, spacing, hidden on mobile. */
+/**
+ * Common frame of every block: theme background role, spacing, hidden on mobile. Breakpoints
+ * are container queries (`@3xl` = 48rem, like `md`), so that the editor preview (F023) can
+ * show the phone and tablet layouts inside the admin page.
+ */
 @Component({
   selector: 'app-block-frame',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -29,6 +33,6 @@ export class BlockFrame {
   protected readonly classes = computed(
     () =>
       `block ${BACKGROUNDS[this.background()]} ${SPACINGS[this.spacing()]}` +
-      (this.hideOnMobile() ? ' max-md:hidden' : ''),
+      (this.hideOnMobile() ? ' @max-3xl:hidden' : ''),
   );
 }

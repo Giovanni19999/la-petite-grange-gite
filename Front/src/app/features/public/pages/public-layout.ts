@@ -35,7 +35,7 @@ import { Lang, MenuItem } from './data-access/pages.models';
         >
       </nav>
     </header>
-    <main>
+    <main class="@container">
       <router-outlet />
     </main>
   `,
