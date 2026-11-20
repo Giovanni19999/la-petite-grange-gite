@@ -8,6 +8,11 @@ use std::fmt;
 use std::net::SocketAddr;
 use std::str::FromStr;
 
+use time::Duration;
+
+use crate::application::auth::LoginThrottle;
+use crate::domain::auth::SessionPolicy;
+
 /// Deployment environment of the API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppEnv {
@@ -88,6 +93,10 @@ pub struct Config {
     pub database_url: Secret,
     pub database_max_connections: u32,
     pub log_format: LogFormat,
+    /// Admin sessions lifetimes (ADR-0011).
+    pub session_policy: SessionPolicy,
+    /// Failed-login throttling (ADR-0011).
+    pub login_throttle: LoginThrottle,
 }
 
 /// Configuration error, always naming the faulty variable.
@@ -107,6 +116,10 @@ mod defaults {
     pub const BIND_ADDR: &str = "127.0.0.1:8080";
     pub const DATABASE_MAX_CONNECTIONS: &str = "10";
     pub const LOG_FORMAT: &str = "pretty";
+    pub const SESSION_MAX_AGE_DAYS: &str = "30";
+    pub const SESSION_IDLE_DAYS: &str = "7";
+    pub const LOGIN_MAX_FAILURES: &str = "5";
+    pub const LOGIN_WINDOW_MINUTES: &str = "15";
 }
 
 impl Config {
@@ -164,12 +177,42 @@ impl Config {
 
         let log_format: LogFormat = optional("LOG_FORMAT", defaults::LOG_FORMAT).parse()?;
 
+        let positive = |name: &'static str, default: &str| {
+            optional(name, default)
+                .parse::<u32>()
+                .ok()
+                .filter(|value| *value > 0)
+                .ok_or_else(|| ConfigError::Invalid {
+                    variable: name,
+                    reason: "must be a positive integer".to_owned(),
+                })
+        };
+        let session_policy = SessionPolicy {
+            max_age: Duration::days(i64::from(positive(
+                "SESSION_MAX_AGE_DAYS",
+                defaults::SESSION_MAX_AGE_DAYS,
+            )?)),
+            idle_timeout: Duration::days(i64::from(positive(
+                "SESSION_IDLE_DAYS",
+                defaults::SESSION_IDLE_DAYS,
+            )?)),
+        };
+        let login_throttle = LoginThrottle {
+            max_failures: positive("LOGIN_MAX_FAILURES", defaults::LOGIN_MAX_FAILURES)? as usize,
+            window: Duration::minutes(i64::from(positive(
+                "LOGIN_WINDOW_MINUTES",
+                defaults::LOGIN_WINDOW_MINUTES,
+            )?)),
+        };
+
         Ok(Self {
             app_env,
             bind_addr,
             database_url: Secret(database_url),
             database_max_connections,
             log_format,
+            session_policy,
+            login_throttle,
         })
     }
 }
@@ -200,6 +243,10 @@ mod tests {
         assert_eq!(config.bind_addr.to_string(), "127.0.0.1:8080");
         assert_eq!(config.database_max_connections, 10);
         assert_eq!(config.log_format, LogFormat::Pretty);
+        assert_eq!(config.session_policy.max_age, Duration::days(30));
+        assert_eq!(config.session_policy.idle_timeout, Duration::days(7));
+        assert_eq!(config.login_throttle.max_failures, 5);
+        assert_eq!(config.login_throttle.window, Duration::minutes(15));
     }
 
     #[test]

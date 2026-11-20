@@ -1,7 +1,7 @@
 //! API error type and its JSON representation.
 //!
 //! Every error response has the shape `{"error": {"code": "...", "message": "..."}}`.
-//! Internal details are logged, never sent to the client.
+//! Messages shown to users are in French; internal details are logged, never sent.
 
 use axum::Json;
 use axum::http::StatusCode;
@@ -11,9 +11,17 @@ use serde::Serialize;
 /// Errors returned by the HTTP layer.
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
-    #[error("resource not found")]
+    #[error("Ressource introuvable")]
     NotFound,
-    #[error("internal error")]
+    #[error("Requête invalide : {0}")]
+    BadRequest(String),
+    #[error("Connexion requise")]
+    Unauthorized,
+    #[error("Email ou mot de passe incorrect")]
+    InvalidCredentials,
+    #[error("Trop de tentatives de connexion, réessayez dans quelques minutes")]
+    TooManyAttempts,
+    #[error("Erreur interne")]
     Internal(#[source] anyhow::Error),
 }
 
@@ -21,6 +29,9 @@ impl ApiError {
     fn status(&self) -> StatusCode {
         match self {
             Self::NotFound => StatusCode::NOT_FOUND,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::Unauthorized | Self::InvalidCredentials => StatusCode::UNAUTHORIZED,
+            Self::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -28,8 +39,18 @@ impl ApiError {
     fn code(&self) -> &'static str {
         match self {
             Self::NotFound => "not_found",
+            Self::BadRequest(_) => "bad_request",
+            Self::Unauthorized => "unauthorized",
+            Self::InvalidCredentials => "invalid_credentials",
+            Self::TooManyAttempts => "too_many_attempts",
             Self::Internal(_) => "internal_error",
         }
+    }
+}
+
+impl From<anyhow::Error> for ApiError {
+    fn from(error: anyhow::Error) -> Self {
+        Self::Internal(error)
     }
 }
 

@@ -3,12 +3,14 @@
 use std::fmt;
 use std::sync::Arc;
 
+use crate::application::auth::AuthService;
 use crate::application::health::DatabaseProbe;
 
-/// Application state: the ports the handlers need, behind trait objects.
+/// Application state: the use cases and ports the handlers need.
 #[derive(Clone)]
 pub struct AppState {
     pub database: Arc<dyn DatabaseProbe>,
+    pub auth: Arc<AuthService>,
 }
 
 impl fmt::Debug for AppState {
