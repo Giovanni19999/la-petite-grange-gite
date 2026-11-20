@@ -63,11 +63,22 @@ npm start                   # http://localhost:4200, /api proxied to the API on 
 
 Checks: `npm run lint`, `npm run format:check`, `npm run test:ci`, `npm run build && npm run check:ssr`, `npm run licenses`.
 
+## Run the whole stack with Docker
+
+Two images (API and Angular SSR server), MariaDB and Caddy as the only entry point ([ADR-0012](docs/adr/0012-separate-containers-for-api-and-front.md)):
+
+```bash
+cp deploy/.env.example deploy/.env      # then set your own passwords
+docker compose -f deploy/compose.yaml up -d --build
+bash deploy/smoke-test.sh              # F022 checks, site on http://localhost:8000
+```
+
 ## Repository layout
 
 ```
 Back/   Rust API (domain, application, infrastructure, http)
 Front/  Angular SSR application (public site and admin)
+deploy/ Docker Compose stack (MariaDB, API, front end, Caddy)
 docs/   architecture, ADRs, feature sheets
 ```
 

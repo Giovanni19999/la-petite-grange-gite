@@ -1,7 +1,7 @@
 ---
 id: F022
 title: "Containers: API and front end in separate images, behind Caddy"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0012]
 ---
