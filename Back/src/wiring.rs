@@ -65,11 +65,13 @@ impl Infrastructure {
     ///
     /// Returns an error if a service cannot be initialised.
     pub fn app_state(&self) -> anyhow::Result<AppState> {
-        app_state(
+        let mut state = app_state(
             &self.pool,
             self.config.session_policy,
             self.config.login_throttle,
-        )
+        )?;
+        state.trust_proxy_headers = self.config.trust_proxy_headers;
+        Ok(state)
     }
 
     /// Use case of the command-line adapter.
@@ -132,5 +134,6 @@ pub fn app_state(
     Ok(AppState {
         database: Arc::new(MariaDbProbe::new(pool.clone())),
         auth: Arc::new(auth_service(pool, policy, throttle)?),
+        trust_proxy_headers: false,
     })
 }
