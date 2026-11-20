@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO page_versions (page_id, number, content, published_at, author_id) SELECT ?, COALESCE(MAX(number), 0) + 1, ?, ?, ? FROM page_versions WHERE page_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "4ded8182a19fcc3aa182a6cf2065ae2ca13eedeff98afcae69c85948eb67807b"
+}

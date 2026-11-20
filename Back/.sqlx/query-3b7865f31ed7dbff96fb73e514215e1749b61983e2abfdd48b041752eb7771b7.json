@@ -1,0 +1,31 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT content FROM page_versions WHERE page_id = ? AND number = ?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "content",
+        "type_info": {
+          "type": "Blob",
+          "flags": "NOT_NULL | BLOB | BINARY | NO_DEFAULT_VALUE",
+          "collation": 224,
+          "max_size": 4294967295
+        },
+        "origin": {
+          "Table": {
+            "table": "gite.page_versions",
+            "name": "content"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3b7865f31ed7dbff96fb73e514215e1749b61983e2abfdd48b041752eb7771b7"
+}

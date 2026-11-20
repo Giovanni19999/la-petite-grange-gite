@@ -1,0 +1,31 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT draft FROM pages WHERE id = ? AND draft_version = ? FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "draft",
+        "type_info": {
+          "type": "Blob",
+          "flags": "NOT_NULL | BLOB | BINARY | NO_DEFAULT_VALUE",
+          "collation": 224,
+          "max_size": 4294967295
+        },
+        "origin": {
+          "Table": {
+            "table": "gite.pages",
+            "name": "draft"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3a9543d6fe53f8aeea1986d9b0ca7faeec09fa7bdd20d9b5b4d6aa1aff21dc7d"
+}
