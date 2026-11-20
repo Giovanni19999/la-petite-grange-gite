@@ -32,6 +32,17 @@ check F002-S01 "English page rendered on the server" bash -c "curl -s '$BASE_URL
 check F002-S03 "unknown page is 404" test "$(status_of /page-inconnue)" = "404"
 check F022-S02 "unknown page is 404" test "$(status_of /does-not-exist)" = "404"
 
+# F003-S09: media files are served by the proxy with a long immutable cache. A tiny file is
+# copied into the media volume through the API container (it has no shell).
+smoke_file="smoke-test.webp"
+printf 'smoke test' > "/tmp/$smoke_file"
+"${COMPOSE[@]}" cp "/tmp/$smoke_file" "api:/data/media/public/$smoke_file" >/dev/null 2>&1
+rm -f "/tmp/$smoke_file"
+media_headers="$(curl -s -D - -o /dev/null "$BASE_URL/uploads/$smoke_file")"
+check F003-S09 "media file served by the proxy" grep -q '^HTTP/[0-9.]* 200' <<<"$media_headers"
+check F003-S09 "media file cached for a year" grep -qi '^cache-control: public, max-age=31536000, immutable' <<<"$media_headers"
+check F003-S09 "private originals are not served" test "$(status_of /uploads/../originals/)" != "200"
+
 for service in api front; do
   # User declared by the image (the API image has no shell to run "id").
   user="$(docker inspect --format '{{.Config.User}}' "$("${COMPOSE[@]}" ps -q "$service")")"

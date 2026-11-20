@@ -33,6 +33,10 @@ services:
       APP_ENV: ${APP_ENV:-production}
       DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@mariadb:3306/${MARIADB_DATABASE}
       TRUST_PROXY_HEADERS: "true"
+      # Media library (F003, ADR-0017): files written by the API, served by Caddy.
+      MEDIA_DIR: /data/media
+    volumes:
+      - media:/data/media
     depends_on:
       mariadb:
         condition: service_healthy
@@ -60,12 +64,20 @@ services:
       - "${HTTP_PORT:-8000}:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Only the public media versions, read-only: the originals stay private.
+      - type: volume
+        source: media
+        target: /srv/uploads
+        read_only: true
+        volume:
+          subpath: public
       - caddy-data:/data
       - caddy-config:/config
     networks: [frontend]
 
 volumes:
   mariadb-data:
+  media:
   caddy-data:
   caddy-config:
 
