@@ -13,6 +13,8 @@ Back/PLAN.md
 
 # --- Données et fichiers envoyés (photos réelles, dumps) ---
 uploads/
+# Media files of the local API (Back/.env: MEDIA_DIR=./data/media)
+Back/data/
 backups/
 *.sql
 # …except the database migrations
