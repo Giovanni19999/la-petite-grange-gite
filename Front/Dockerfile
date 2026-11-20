@@ -9,6 +9,13 @@ COPY . .
 RUN npm run build
 
 FROM node:26-alpine
+# Security fixes of the Alpine packages published after the base image, and no package
+# managers at runtime: npm, npx, corepack and yarn bring their own vulnerable dependencies
+# and the server bundle does not need them.
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules /opt/yarn-* \
+        /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=4000
