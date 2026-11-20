@@ -5,6 +5,7 @@
 pub mod auth;
 pub mod error;
 pub mod health;
+pub mod server;
 
 use axum::Router;
 use axum::routing::get;

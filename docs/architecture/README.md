@@ -64,6 +64,7 @@ flowchart TB
 ```mermaid
 flowchart LR
     http[http<br/>axum routes, DTOs, auth] --> app[application<br/>use cases + ports]
+    cli[cli<br/>create-admin command] --> app
     app --> domain[domain<br/>pure business rules]
     infra[infrastructure<br/>MariaDB, payment, channel manager,<br/>iCal, mail, SMS, PDF, images] -->|implements ports| app
     infra --> domain
@@ -81,7 +82,7 @@ flowchart LR
 | `domain/review` | reviews, criteria, moderation, owner replies |
 | `domain/message` | message templates, schedule |
 
-Rule: `domain` depends on nothing external; `http` contains no business logic and no SQL.
+Rule: `domain` depends on nothing external; the driving adapters `http` and `cli` contain no business logic and no SQL; `wiring` assembles the adapters and owns the infrastructure lifecycle; `main.rs` only parses the command and hands over.
 
 ## 6. Deployment
 

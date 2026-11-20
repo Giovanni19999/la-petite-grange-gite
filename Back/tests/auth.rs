@@ -48,12 +48,12 @@ impl TestApp {
             max_failures: 5,
             window: Duration::minutes(15),
         };
-        let state = wiring::app_state(&pool, policy, throttle).unwrap();
-        state
-            .auth
-            .create_admin(EMAIL, &Password::new(PASSWORD))
+        wiring::admin_accounts(&pool)
+            .unwrap()
+            .create(EMAIL, &Password::new(PASSWORD))
             .await
             .unwrap();
+        let state = wiring::app_state(&pool, policy, throttle).unwrap();
 
         Self {
             router: router(state),
