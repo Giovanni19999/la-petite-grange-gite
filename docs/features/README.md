@@ -27,4 +27,4 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | F020 | Appearance: predefined light themes (blue default) | draft | 0004 |
 | [F021](F021-frontend-foundation.md) | Frontend foundation: Angular SSR, light blue theme, public and admin areas | implemented | 0004 |
 | [F022](F022-containers.md) | Containers: API and front end in separate images, behind Caddy | implemented | 0012 |
-| [F023](F023-page-editor.md) | Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog) | frozen | 0009, 0015 |
+| [F023](F023-page-editor.md) | Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog) | implemented | 0009, 0015 |
