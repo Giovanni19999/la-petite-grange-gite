@@ -1,0 +1,21 @@
+# Single public entry point (ADR-0012).
+# Locally SITE_ADDRESS is ":80" (plain HTTP); in production set it to the domain name
+# (for example "lapetitegrange.fr") and Caddy obtains HTTPS certificates automatically.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		reverse_proxy front:4000
+	}
+}
