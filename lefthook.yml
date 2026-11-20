@@ -1,0 +1,20 @@
+# Git hooks (https://lefthook.dev). Install once: `lefthook install`.
+pre-commit:
+  parallel: true
+  commands:
+    secrets:
+      run: gitleaks protect --staged --redact --no-banner
+    back-fmt:
+      glob: "Back/**/*.rs"
+      root: "Back/"
+      run: cargo fmt --all --check
+    back-clippy:
+      glob: "Back/**/*.rs"
+      root: "Back/"
+      run: cargo clippy --all-targets -- -D warnings
+
+pre-push:
+  commands:
+    back-tests:
+      root: "Back/"
+      run: cargo test --all-targets
