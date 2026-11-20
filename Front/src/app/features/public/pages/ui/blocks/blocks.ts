@@ -5,6 +5,7 @@ import {
   ColumnsBlock,
   GalleryBlock,
   HeroBlock,
+  PublicBlock,
   TextBlock,
   TextImageBlock,
 } from '../../data-access/pages.models';
@@ -37,14 +38,25 @@ const HERO_HEIGHT: Record<HeroBlock['height'], string> = {
       [class]="heightClass() + ' ' + alignClass()"
     >
       <div class="mx-auto flex w-full max-w-4xl flex-col gap-4" [class]="alignClass()">
-        <h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">{{ block().title }}</h1>
+        <h1
+          class="text-4xl font-semibold tracking-tight @2xl:text-5xl"
+          [class.opacity-60]="isFallback(block(), 'title')"
+        >
+          {{ block().title }}
+        </h1>
         @if (block().subtitle) {
-          <p class="text-lg opacity-90 sm:text-xl">{{ block().subtitle }}</p>
+          <p
+            class="text-lg opacity-90 @2xl:text-xl"
+            [class.opacity-60]="isFallback(block(), 'subtitle')"
+          >
+            {{ block().subtitle }}
+          </p>
         }
         @if (block().button_label && block().button_link) {
           <a
             class="mt-2 inline-flex w-fit rounded-md bg-background px-6 py-3 font-medium text-foreground shadow-sm transition hover:opacity-90"
             [href]="block().button_link"
+            [class.opacity-60]="isFallback(block(), 'button_label')"
           >
             {{ block().button_label }}
           </a>
@@ -55,6 +67,7 @@ const HERO_HEIGHT: Record<HeroBlock['height'], string> = {
 })
 export class HeroBlockView {
   readonly block = input.required<HeroBlock>();
+  protected readonly isFallback = isFallback;
   protected readonly heightClass = computed(() => HERO_HEIGHT[this.block().height]);
   protected readonly alignClass = computed(() => ITEMS_ALIGN[this.block().align]);
 }
@@ -67,12 +80,14 @@ export class HeroBlockView {
     <div
       class="rich-text mx-auto px-4"
       [class]="(block().width === 'wide' ? 'max-w-5xl ' : 'max-w-2xl ') + alignClass()"
+      [class.opacity-60]="isFallback(block(), 'body')"
       [innerHTML]="block().body"
     ></div>
   `,
 })
 export class TextBlockView {
   readonly block = input.required<TextBlock>();
+  protected readonly isFallback = isFallback;
   protected readonly alignClass = computed(() => TEXT_ALIGN[this.block().align]);
 }
 
@@ -82,11 +97,15 @@ export class TextBlockView {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="mx-auto grid max-w-5xl gap-8 px-4" [class]="gridClass()">
-      <div class="rich-text" [innerHTML]="block().body"></div>
+      <div
+        class="rich-text"
+        [class.opacity-60]="isFallback(block(), 'body')"
+        [innerHTML]="block().body"
+      ></div>
       @if (block().image !== null) {
         <div
           class="aspect-[4/3] rounded-lg bg-muted"
-          [class.md:order-first]="block().image_position === 'left'"
+          [class]="block().image_position === 'left' ? '@3xl:order-first' : ''"
           role="img"
           aria-label=""
         ></div>
@@ -96,11 +115,12 @@ export class TextBlockView {
 })
 export class TextImageBlockView {
   readonly block = input.required<TextImageBlock>();
+  protected readonly isFallback = isFallback;
   protected readonly gridClass = computed(() => {
     if (this.block().image === null) {
       return 'max-w-2xl';
     }
-    return this.block().ratio === '33-67' ? 'md:grid-cols-[2fr_1fr]' : 'md:grid-cols-2';
+    return this.block().ratio === '33-67' ? '@3xl:grid-cols-[2fr_1fr]' : '@3xl:grid-cols-2';
   });
 }
 
@@ -113,9 +133,18 @@ export class TextImageBlockView {
       @for (item of block().items; track $index) {
         <div class="flex flex-col gap-2">
           @if (item.title) {
-            <h2 class="text-xl font-semibold">{{ item.title }}</h2>
+            <h2
+              class="text-xl font-semibold"
+              [class.opacity-60]="isFallback(block(), 'items.' + $index + '.title')"
+            >
+              {{ item.title }}
+            </h2>
           }
-          <div class="rich-text" [innerHTML]="item.body"></div>
+          <div
+            class="rich-text"
+            [class.opacity-60]="isFallback(block(), 'items.' + $index + '.body')"
+            [innerHTML]="item.body"
+          ></div>
         </div>
       }
     </div>
@@ -123,11 +152,12 @@ export class TextImageBlockView {
 })
 export class ColumnsBlockView {
   readonly block = input.required<ColumnsBlock>();
+  protected readonly isFallback = isFallback;
   protected readonly gridClass = computed(
     () =>
-      ({ 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-2 lg:grid-cols-4' })[
+      ({ 2: '@2xl:grid-cols-2', 3: '@2xl:grid-cols-3', 4: '@2xl:grid-cols-2 @5xl:grid-cols-4' })[
         this.block().items.length
-      ] ?? 'sm:grid-cols-2',
+      ] ?? '@2xl:grid-cols-2',
   );
 }
 
@@ -148,6 +178,11 @@ export class ColumnsBlockView {
 export class GalleryBlockView {
   readonly block = input.required<GalleryBlock>();
   protected readonly columnsClass = computed(
-    () => ({ 3: 'md:grid-cols-3', 4: 'md:grid-cols-4' })[this.block().columns] ?? '',
+    () => ({ 3: '@3xl:grid-cols-3', 4: '@3xl:grid-cols-4' })[this.block().columns] ?? '',
   );
+}
+
+/** Editor preview (F023): whether a text is shown in French because its English one is empty. */
+function isFallback(block: PublicBlock, name: string): boolean {
+  return block.fallback?.includes(name) ?? false;
 }

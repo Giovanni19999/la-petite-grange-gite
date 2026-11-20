@@ -28,7 +28,7 @@ import {
   template: `
     @let b = block();
     @if (b.type === 'hero') {
-      <app-hero-block [block]="b" [class.max-md:hidden]="b.hide_on_mobile" />
+      <app-hero-block [block]="b" [class]="b.hide_on_mobile ? '@max-3xl:hidden' : ''" />
     } @else {
       <app-block-frame
         [background]="b.background"

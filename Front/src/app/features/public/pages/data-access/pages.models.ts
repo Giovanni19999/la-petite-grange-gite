@@ -10,6 +10,8 @@ interface BlockBase {
   background: Background;
   spacing: Spacing;
   hide_on_mobile: boolean;
+  /** Editor preview only (F023): texts shown in French because the English one is empty. */
+  fallback?: string[];
 }
 
 export interface HeroBlock extends BlockBase {
