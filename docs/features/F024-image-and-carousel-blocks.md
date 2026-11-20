@@ -1,7 +1,7 @@
 ---
 id: F024
 title: "Fixed image or carousel: hero carousel, image and carousel blocks"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0009, ADR-0017]
 ---
@@ -79,7 +79,13 @@ Feature: Fixed image or carousel
 
 | Scenario | Test |
 |---|---|
-| F024-S01 → S07 | to be filled in when implemented |
+| F024-S01 | `Back/src/domain/page.rs::tests::f024_s01_*`, `Back/tests/media.rs::f024_s01_s02_s04_s05_*` |
+| F024-S02 | `Back/tests/media.rs::f024_s01_s02_s04_s05_*`, `Front/src/app/shared/media/carousel.spec.ts` |
+| F024-S03 | `Front/src/app/shared/media/carousel.spec.ts` |
+| F024-S04 | `Back/src/domain/page.rs::tests::f024_s04_s05_*`, `Back/tests/media.rs::f024_s01_s02_s04_s05_*`, `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
+| F024-S05 | `Back/src/domain/page.rs::tests::f024_s04_s05_*`, `Front/src/app/shared/media/carousel.spec.ts` (arrows, dots, keys, swipe), `Front/src/app/features/admin/pages/editor/page-editor.page.spec.ts` |
+| F024-S06 | `Back/src/domain/page.rs::tests::f024_s06_*`, `Back/tests/media.rs::f024_s06_*` |
+| F024-S07 | `Front/src/app/shared/media/carousel.spec.ts` |
 
 ## Changelog
 

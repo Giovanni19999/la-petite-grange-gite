@@ -28,4 +28,4 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | [F021](F021-frontend-foundation.md) | Frontend foundation: Angular SSR, light blue theme, public and admin areas | implemented | 0004 |
 | [F022](F022-containers.md) | Containers: API and front end in separate images, behind Caddy | implemented | 0012 |
 | [F023](F023-page-editor.md) | Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog) | implemented | 0009, 0015 |
-| [F024](F024-image-and-carousel-blocks.md) | Fixed image or carousel: hero carousel, image and carousel blocks | frozen | 0009, 0017 |
+| [F024](F024-image-and-carousel-blocks.md) | Fixed image or carousel: hero carousel, image and carousel blocks | implemented | 0009, 0017 |
