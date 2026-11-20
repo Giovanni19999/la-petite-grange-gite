@@ -9,7 +9,7 @@ import {
   input,
   signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { NgTemplateOutlet, isPlatformBrowser } from '@angular/common';
 
 import { PublicImage } from '../../features/public/pages/data-access/pages.models';
 import { ResponsiveImage } from './responsive-image';
@@ -18,14 +18,19 @@ import { ResponsiveImage } from './responsive-image';
 const SWIPE_THRESHOLD_PX = 40;
 
 /**
- * Photos that scroll (F024): arrows, dots, swipe and arrow keys; optional automatic scrolling
- * with a pause button, stopped on hover, on focus and when the device asks for reduced
- * motion. Only the photo shown (and the next one, just before it is shown) is downloaded.
+ * Photos that scroll (F024 v2): dots, swipe and arrow keys, no on-screen arrows or pause
+ * button; optional automatic scrolling, stopped on hover, on focus, while dragging and when
+ * the device asks for reduced motion, and restarted from zero after each manual move. Only the photo shown (and the next one, just before it is shown) is downloaded.
+ *
+ * Simulated loop: the track holds a copy of the last photo before the first one and a copy of
+ * the first photo after the last one, so that going past an end slides on in the same
+ * direction (and a drag shows the neighbour photo); once there, the track jumps without
+ * animation to the real photo.
  */
 @Component({
   selector: 'app-carousel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ResponsiveImage],
+  imports: [NgTemplateOutlet, ResponsiveImage],
   host: { class: 'block' },
   template: `
     <div
@@ -47,11 +52,21 @@ const SWIPE_THRESHOLD_PX = 40;
     >
       <div
         class="flex h-full ease-out motion-reduce:transition-none"
-        [class.transition-transform]="drag() === null"
-        [class.duration-500]="drag() === null"
-        [style.transform]="'translateX(calc(-' + index() * 100 + '% + ' + (drag() ?? 0) + 'px))'"
+        [class.transition-transform]="animate() && drag() === null"
+        [class.duration-500]="animate() && drag() === null"
+        [style.transform]="'translateX(calc(-' + position() * 100 + '% + ' + (drag() ?? 0) + 'px))'"
         [attr.aria-live]="playing() ? 'off' : 'polite'"
+        (transitionend)="onTransitionEnd()"
       >
+        <!-- Simulated loop: a copy of the last photo before the first one... -->
+        @if (count() > 1) {
+          <ng-container
+            *ngTemplateOutlet="
+              copy;
+              context: { $implicit: count() - 1, shown: index() === 0 || position() < 1 }
+            "
+          />
+        }
         @for (image of images(); track image.id; let i = $index) {
           <figure
             class="relative h-full w-full shrink-0"
@@ -79,25 +94,42 @@ const SWIPE_THRESHOLD_PX = 40;
             }
           </figure>
         }
+        <!-- ...and a copy of the first photo after the last one. -->
+        @if (count() > 1) {
+          <ng-container
+            *ngTemplateOutlet="
+              copy;
+              context: { $implicit: 0, shown: index() === count() - 1 || position() > count() }
+            "
+          />
+        }
       </div>
 
+      <ng-template #copy let-i let-shown="shown">
+        <figure
+          class="relative h-full w-full shrink-0"
+          aria-hidden="true"
+          inert
+          data-testid="slide-copy"
+        >
+          @if (shown && loaded().has(i)) {
+            <app-responsive-image
+              [image]="images()[i]"
+              [sizes]="sizes()"
+              imageClass="h-full w-full object-cover"
+            />
+          }
+          @if (showCaptions() && images()[i].caption) {
+            <figcaption
+              class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pt-8 pb-10 text-sm text-white"
+            >
+              {{ images()[i].caption }}
+            </figcaption>
+          }
+        </figure>
+      </ng-template>
+
       @if (images().length > 1) {
-        <button
-          type="button"
-          class="absolute top-1/2 left-2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow hover:bg-background"
-          aria-label="Photo précédente"
-          (click)="go(index() - 1)"
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          class="absolute top-1/2 right-2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow hover:bg-background"
-          aria-label="Photo suivante"
-          (click)="go(index() + 1)"
-        >
-          ›
-        </button>
         <div class="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-2">
           @for (image of images(); track image.id; let i = $index) {
             <button
@@ -110,19 +142,6 @@ const SWIPE_THRESHOLD_PX = 40;
               data-testid="dot"
               (click)="go(i)"
             ></button>
-          }
-          @if (autoplay() && !reducedMotion()) {
-            <button
-              type="button"
-              class="ml-2 rounded-full bg-background/80 px-3 py-1 text-xs text-foreground shadow"
-              [attr.aria-label]="
-                paused() ? 'Reprendre le défilement' : 'Mettre en pause le défilement'
-              "
-              data-testid="pause"
-              (click)="paused.set(!paused())"
-            >
-              {{ paused() ? '▶ Lecture' : '❚❚ Pause' }}
-            </button>
           }
         </div>
       }
@@ -141,12 +160,17 @@ export class Carousel {
   readonly priority = input(false);
   readonly showCaptions = input(true);
 
-  protected readonly index = signal(0);
+  protected readonly count = computed(() => this.images().length);
+  /** Position on the track: 0 is the copy of the last photo, 1 the first photo… */
+  protected readonly position = signal(1);
+  /** Photo shown (0-based), copies counted as the photo they copy. */
+  protected readonly index = computed(() => mod(this.position() - 1, Math.max(this.count(), 1)));
+  /** Slide animation on; off for the jump from a copy to the real photo. */
+  protected readonly animate = signal(true);
   /** Photos already requested (the current one, the ones seen, the next one about to show). */
   protected readonly loaded = signal(new Set([0]));
   protected readonly hovered = signal(false);
   protected readonly focused = signal(false);
-  protected readonly paused = signal(false);
   protected readonly reducedMotion = signal(false);
   /** Horizontal finger (or mouse) movement while dragging, in pixels; `null` when idle. */
   protected readonly drag = signal<number | null>(null);
@@ -157,7 +181,6 @@ export class Carousel {
     () =>
       this.autoplay() &&
       this.images().length > 1 &&
-      !this.paused() &&
       !this.hovered() &&
       !this.focused() &&
       this.drag() === null &&
@@ -179,27 +202,66 @@ export class Carousel {
       if (!browser || !this.playing()) {
         return;
       }
+      // Reading the index restarts the delay after every change of photo.
       this.markLoaded(this.index() + 1);
-      const timer = setInterval(() => this.go(this.index() + 1), this.interval() * 1000);
+      const timer = setInterval(() => this.step(1), this.interval() * 1000);
       onCleanup(() => clearInterval(timer));
     });
   }
 
-  /** Shows photo `target` (wrapping around at both ends). */
+  /** Shows photo `target` (0-based), sliding the shortest way inside the track. */
   go(target: number): void {
-    const count = this.images().length;
+    const count = this.count();
     if (count === 0) {
       return;
     }
-    const next = ((target % count) + count) % count;
-    this.markLoaded(next);
-    this.index.set(next);
+    const photo = mod(target, count);
+    this.markLoaded(photo);
+    this.position.set(photo + 1);
+  }
+
+  /** Next (`1`) or previous (`-1`) photo; past an end, slides on to the copy. */
+  step(delta: 1 | -1): void {
+    const count = this.count();
+    if (count < 2) {
+      return;
+    }
+    this.settle();
+    this.markLoaded(this.index() + delta);
+    if (this.reducedMotion()) {
+      // No animation: no need to pass through the copies.
+      this.position.set(mod(this.index() + delta, count) + 1);
+      return;
+    }
+    this.position.update((position) => position + delta);
+  }
+
+  /** After a slide onto a copy, jump without animation to the photo it copies. */
+  protected onTransitionEnd(): void {
+    this.settle();
+  }
+
+  private settle(): void {
+    const count = this.count();
+    const position = this.position();
+    if (position >= 1 && position <= count) {
+      return;
+    }
+    this.animate.set(false);
+    this.position.set(this.index() + 1);
+    // Turn the animation back on once the jump has been painted.
+    const restore = () => this.animate.set(true);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(restore));
+    } else {
+      setTimeout(restore);
+    }
   }
 
   protected onKey(event: KeyboardEvent): void {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();
-      this.go(this.index() + (event.key === 'ArrowLeft' ? -1 : 1));
+      this.step(event.key === 'ArrowLeft' ? -1 : 1);
     }
   }
 
@@ -235,7 +297,7 @@ export class Carousel {
     const distance = event.clientX - start.x;
     this.cancelDrag();
     if (Math.abs(distance) >= SWIPE_THRESHOLD_PX) {
-      this.go(this.index() + (distance < 0 ? 1 : -1));
+      this.step(distance < 0 ? 1 : -1);
     }
   }
 
@@ -246,10 +308,14 @@ export class Carousel {
   }
 
   private markLoaded(target: number): void {
-    const count = this.images().length;
-    const index = ((target % count) + count) % count;
+    const index = mod(target, this.count());
     if (!this.loaded().has(index)) {
       this.loaded.update((loaded) => new Set([...loaded, index]));
     }
   }
+}
+
+/** Remainder always between 0 and `count - 1`. */
+function mod(value: number, count: number): number {
+  return ((value % count) + count) % count;
 }
