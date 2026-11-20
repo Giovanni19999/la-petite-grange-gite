@@ -8,6 +8,7 @@
 //! * [`http`]: axum routes, DTOs and error mapping only.
 
 pub mod application;
+pub mod config;
 pub mod domain;
 pub mod http;
 pub mod infrastructure;
