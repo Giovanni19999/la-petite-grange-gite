@@ -25,3 +25,4 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | F018 | Statistics | draft | 0007 |
 | F019 | Listing content per platform (assisted mode) | draft | 0007 |
 | F020 | Appearance: predefined light themes (blue default) | draft | 0004 |
+| [F021](F021-frontend-foundation.md) | Frontend foundation: Angular SSR, light blue theme, public and admin areas | frozen | 0004 |
