@@ -87,6 +87,8 @@ Rule: `domain` depends on nothing external; `http` contains no business logic an
 
 Docker Compose on one VPS: Caddy (Let's Encrypt), Front (Node SSR), Back (Rust binary), MariaDB (not exposed), daily `mariadb-dump` + uploads backup off-site with rotation.
 
+The Angular SSR server only answers requests whose `Host` header is allowed (SSRF protection): `localhost` and `127.0.0.1` in `Front/angular.json`; the production domain must be added there (or in `NG_ALLOWED_HOSTS`) when it is bought.
+
 ## 7. Cross-cutting concepts
 
 * **Money** in integer cents (`Money`), never floats; VAT breakdown computed from gross amounts.
