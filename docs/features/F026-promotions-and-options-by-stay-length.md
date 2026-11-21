@@ -1,7 +1,7 @@
 ---
 id: F026
 title: "Promotions and options offered by stay length (optional minimum and maximum nights)"
-status: frozen
+status: implemented
 version: 2
 adr: [ADR-0008, ADR-0010]
 ---
@@ -69,7 +69,11 @@ Feature: Promotions and options by stay length
 
 | Scenario | Test |
 |---|---|
-| F026-S01 → S04 | to be filled in when implemented |
+| F026-S01 | `Back/src/domain/offers.rs::tests::f026_s01_*`, `Back/src/domain/quote.rs::tests::f026_s01_s04_*`, `Back/tests/offers.rs::f026_s01_s03_*`, `Front/src/app/features/admin/offers/offers.page.spec.ts`, `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
+| F026-S02 | `Back/src/domain/offers.rs::tests::f026_s02_*` |
+| F026-S03 | `Back/src/domain/offers.rs::tests::f026_s03_*`, `Back/tests/offers.rs::f026_s01_s03_*` |
+| F026-S04 | `Back/src/domain/offers.rs::tests::f026_s04_*`, `Back/src/domain/quote.rs::tests::f026_s01_s04_*`, `Back/tests/offers.rs::f026_s04_*`, `Front/src/app/features/admin/offers/offers.page.spec.ts`, `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
+| Management, history, admin only | `Back/src/domain/offers.rs::tests::f026_offers_are_validated`, `Back/tests/offers.rs::f026_owners_manage_offers_with_history`, `Back/tests/offers.rs::f026_offers_are_admin_only`, `Front/src/app/features/admin/offers/offers.page.spec.ts` |
 | F026-S05 | with the booking (F007) |
 
 ## Changelog
