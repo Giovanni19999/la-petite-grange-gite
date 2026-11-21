@@ -10,7 +10,7 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | [F003](F003-media-library.md) | Media library: upload, WebP sizes, focal point, alt text, images in blocks | implemented | 0009, 0017 |
 | [F004](F004-availability-calendar.md) | Availability calendar with the nightly price under each free date | draft | 0005, 0008, 0009, 0010 |
 | [F005](F005-blocked-periods.md) | Blocked periods: closure, family, private event | implemented | 0002, 0003, 0007, 0010, 0011 |
-| [F006](F006-prices-per-period-and-channel.md) | Prices per date range and per channel (listed / net), default price | frozen | 0002, 0003, 0007, 0008, 0010, 0011, 0018 |
+| [F006](F006-prices-per-period-and-channel.md) | Prices per date range and per channel (listed / net), default price | implemented | 0002, 0003, 0007, 0008, 0010, 0011, 0018 |
 | [F007](F007-instant-booking-with-deposit.md) | Instant booking with online deposit (percentage or fixed amount) | draft | 0005, 0006, 0007, 0010 |
 | [F008](F008-balance-reminders-auto-cancellation.md) | Balance at D-30, reminders, automatic cancellation | draft | 0005, 0006, 0010 |
 | [F009](F009-last-minute-booking.md) | Last-minute booking: 100 % online or bank transfer within 3 days | draft | 0005, 0006, 0010 |
