@@ -22,6 +22,7 @@ import { AuthStore } from '../../../core/auth/auth.store';
         <a hlmBtn variant="outline" routerLink="/admin/medias">Médiathèque</a>
         <a hlmBtn variant="outline" routerLink="/admin/fermetures">Fermetures</a>
         <a hlmBtn variant="outline" routerLink="/admin/tarifs">Tarifs</a>
+        <a hlmBtn variant="outline" routerLink="/admin/promotions">Promotions et options</a>
         <a hlmBtn variant="outline" routerLink="/admin/regles">Règles du gîte</a>
       </nav>
     </section>
