@@ -1,8 +1,8 @@
 ---
 id: F026
 title: "Promotions and options offered by stay length (optional minimum and maximum nights)"
-status: draft
-version: 1
+status: frozen
+version: 2
 adr: [ADR-0008, ADR-0010]
 ---
 
@@ -20,13 +20,14 @@ so that I know the exact price before booking.
 
 ## Business rules
 
-* **Promotion** (admin screen "Promotions", in "Tarifs"): name (FR / EN), discount as a **percentage** or a **fixed amount** (per stay or per night, in euros), **minimum nights (optional)** and **maximum nights (optional)**: it applies when `min ≤ nights ≤ max`, a missing bound being open. Optional validity dates (on the arrival date), active / inactive.
+* **Admin screen "Promotions et options"** (its own screen, button on the admin home next to "Tarifs").
+* **Promotion**: name (FR / EN, English falls back to French), discount as a **percentage** (of the nights) or a **fixed amount in euros, per stay or per night**, **minimum nights (optional)** and **maximum nights (optional)**: it applies when `min ≤ nights ≤ max`, a missing bound being open (min ≤ max when both are set). Optional validity dates on the **arrival date** (from, until: both included), active / inactive.
 * Only the **best** promotion applies (the largest discount); promotions are never added up. The discount applies to the nights only (never to the cleaning fee or the tourist tax) and never makes the stay negative.
-* **Option** (admin screen "Options"): name and description (FR / EN), price per stay, per night or per guest (0 € for an offered option), **minimum and maximum nights (both optional)** for it to be offered, maximum quantity, active / inactive. Examples: bed linen, cleaning at the end of the stay, baby cot, late departure.
-* The quote (F004) shows the promotion that applies (name and discount) and the options available for the chosen stay; the visitor ticks options and the quote is updated. The API computes everything; the deposit and balance include the options and the discount.
+* **Option**: name and description (FR / EN), price in euros **per stay, per night, per guest, or per guest and per night** (0 € for an offered option, shown "offert"), **minimum and maximum nights (both optional)** for it to be offered, display order, active / inactive. The visitor ticks an option or not (no quantity). Examples: bed linen, cleaning at the end of the stay, baby cot, late departure.
+* The quote (F004, `POST /api/quote` with the ids of the ticked options) shows the promotion that applies (name and discount) and the options offered for the chosen stay with their price; the visitor ticks options and the quote is updated. The API computes everything: stay total = nights − discount + cleaning + ticked options; the deposit and balance are computed on that total; the tourist tax is unchanged. An option that is not offered for the stay is refused with a clear reason.
 * The booking (F007) keeps the promotion and options **as they were** at booking time (name and amounts copied), so that a later change never modifies an existing booking.
 * Only the direct booking on the site gets these promotions and options; prices on the platforms are managed there (F013, F019).
-* Every change is kept in the price history (F006).
+* Every change (created, changed, deleted) is kept in the price history of F006 with its author.
 
 ## Acceptance criteria
 
@@ -68,8 +69,10 @@ Feature: Promotions and options by stay length
 
 | Scenario | Test |
 |---|---|
-| F026-S01 → S05 | to be filled in when implemented |
+| F026-S01 → S04 | to be filled in when implemented |
+| F026-S05 | with the booking (F007) |
 
 ## Changelog
 
 * v1 (2026-11-21): first version (draft), at the owners' request: promotions or options offered depending on the number of nights, with optional minimum and maximum.
+* v2 (2026-11-21): frozen: best promotion only, option prices per stay / night / guest / guest and night, ticked without quantity, own admin screen "Promotions et options"; S05 is tested with the booking (F007).
