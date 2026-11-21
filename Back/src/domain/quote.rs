@@ -4,9 +4,10 @@
 use time::Date;
 
 use crate::domain::house_rules::{HouseRules, Weekdays, earliest_arrival};
+use crate::domain::offers::{Promotion, StayOption, best_promotion};
 
 /// What the visitor asks for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StayRequest {
     pub arrival: Date,
     /// Day of departure (the last night is the day before).
@@ -14,6 +15,16 @@ pub struct StayRequest {
     pub adults: u8,
     /// Guests under the exemption age of the tourist tax.
     pub children: u8,
+    /// Ids of the ticked options (F026).
+    pub options: Vec<u64>,
+}
+
+/// An option offered for the stay, with its price for this stay (F026).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct QuotedOption {
+    pub id: u64,
+    pub price: u64,
+    pub selected: bool,
 }
 
 /// One night as visitors may book it.
@@ -31,8 +42,16 @@ pub struct NightOffer {
 pub struct Quote {
     pub nights: u64,
     pub nights_total: u64,
+    /// Discount of the best promotion that applies (F026), on the nights only.
+    pub discount: u64,
+    /// Index of that promotion in the context.
+    pub promotion: Option<usize>,
     pub cleaning_fee: u64,
-    /// Nights + cleaning: what the deposit and the balance share.
+    /// Options offered for this stay, in display order.
+    pub options: Vec<QuotedOption>,
+    /// Total of the ticked options.
+    pub options_total: u64,
+    /// Nights − discount + cleaning + ticked options: what the deposit and the balance share.
     pub stay_total: u64,
     /// Due at booking.
     pub deposit: u64,
@@ -62,6 +81,8 @@ pub enum QuoteRefusal {
     Unavailable,
     #[error("{0} nuits minimum pour cette date d'arrivée")]
     MinimumStay(u8),
+    #[error("une option choisie n'est pas proposée pour ce séjour")]
+    OptionNotOffered,
 }
 
 fn day(date: Date) -> String {
@@ -81,18 +102,18 @@ pub struct QuoteContext<'a> {
     /// Offers of the nights of the stay (a missing night counts as unavailable).
     pub nights: &'a [NightOffer],
     pub cleaning_fee: u64,
+    /// Promotions of the site (F026).
+    pub promotions: &'a [Promotion],
+    /// Options of the site with their id, in display order (F026).
+    pub options: &'a [(u64, StayOption)],
 }
 
-/// The quote of `request`, or every reason to refuse it.
-///
-/// # Errors
-///
-/// The reasons the stay cannot be booked, in a stable order.
-pub fn quote(request: StayRequest, context: QuoteContext<'_>) -> Result<Quote, Vec<QuoteRefusal>> {
-    if request.departure <= request.arrival {
-        return Err(vec![QuoteRefusal::DatesOrder]);
-    }
-    let rules = context.rules;
+/// Guests, minimum delay and weekdays of the house rules.
+fn house_rule_refusals(
+    request: &StayRequest,
+    rules: &HouseRules,
+    today: Date,
+) -> Vec<QuoteRefusal> {
     let mut refusals = Vec::new();
     if request.adults == 0 {
         refusals.push(QuoteRefusal::NoAdult);
@@ -100,7 +121,7 @@ pub fn quote(request: StayRequest, context: QuoteContext<'_>) -> Result<Quote, V
     if u16::from(request.adults) + u16::from(request.children) > u16::from(rules.capacity) {
         refusals.push(QuoteRefusal::Capacity(rules.capacity));
     }
-    let earliest = earliest_arrival(context.today, rules.min_delay_days);
+    let earliest = earliest_arrival(today, rules.min_delay_days);
     if request.arrival < earliest {
         refusals.push(QuoteRefusal::TooSoon(earliest));
     }
@@ -113,6 +134,20 @@ pub fn quote(request: StayRequest, context: QuoteContext<'_>) -> Result<Quote, V
     {
         refusals.push(QuoteRefusal::DepartureDay(rules.departure_weekdays));
     }
+    refusals
+}
+
+/// The quote of `request`, or every reason to refuse it.
+///
+/// # Errors
+///
+/// The reasons the stay cannot be booked, in a stable order.
+pub fn quote(request: &StayRequest, context: QuoteContext<'_>) -> Result<Quote, Vec<QuoteRefusal>> {
+    if request.departure <= request.arrival {
+        return Err(vec![QuoteRefusal::DatesOrder]);
+    }
+    let rules = context.rules;
+    let mut refusals = house_rule_refusals(request, rules, context.today);
 
     let mut prices = Vec::new();
     let mut night = request.arrival;
@@ -141,12 +176,40 @@ pub fn quote(request: StayRequest, context: QuoteContext<'_>) -> Result<Quote, V
     if nights < u64::from(min_nights) {
         refusals.push(QuoteRefusal::MinimumStay(min_nights));
     }
+    let offered: Vec<&(u64, StayOption)> = context
+        .options
+        .iter()
+        .filter(|(_, option)| option.offered(nights))
+        .collect();
+    if request
+        .options
+        .iter()
+        .any(|id| !offered.iter().any(|(offered_id, _)| offered_id == id))
+    {
+        refusals.push(QuoteRefusal::OptionNotOffered);
+    }
     if !refusals.is_empty() {
         return Err(refusals);
     }
 
     let nights_total: u64 = prices.into_iter().flatten().sum();
-    let stay_total = nights_total + context.cleaning_fee;
+    let best = best_promotion(context.promotions, nights_total, nights, request.arrival);
+    let discount = best.map_or(0, |(_, amount)| amount);
+    let guests = u64::from(request.adults) + u64::from(request.children);
+    let options: Vec<QuotedOption> = offered
+        .iter()
+        .map(|(id, option)| QuotedOption {
+            id: *id,
+            price: option.price_for(nights, guests),
+            selected: request.options.contains(id),
+        })
+        .collect();
+    let options_total = options
+        .iter()
+        .filter(|option| option.selected)
+        .map(|option| option.price)
+        .sum();
+    let stay_total = nights_total - discount + context.cleaning_fee + options_total;
     let balance_date = request.arrival - time::Duration::days(i64::from(rules.balance_days));
     let (deposit, balance_due) = if balance_date <= context.today {
         (stay_total, None)
@@ -156,7 +219,11 @@ pub fn quote(request: StayRequest, context: QuoteContext<'_>) -> Result<Quote, V
     Ok(Quote {
         nights,
         nights_total,
+        discount,
+        promotion: best.map(|(index, _)| index),
         cleaning_fee: context.cleaning_fee,
+        options,
+        options_total,
         stay_total,
         deposit,
         balance: stay_total - deposit,
@@ -173,6 +240,8 @@ mod tests {
     use super::*;
     use crate::domain::calendar::BookingHorizon;
     use crate::domain::house_rules::{Deposit, TouristTax};
+    use crate::domain::offers::{Discount, NightBounds, OptionUnit};
+    use crate::domain::page::Localized;
 
     const TODAY: Date = date!(2027 - 03 - 01);
 
@@ -220,17 +289,20 @@ mod tests {
         nights: &[NightOffer],
     ) -> Result<Quote, Vec<QuoteRefusal>> {
         quote(
-            StayRequest {
+            &StayRequest {
                 arrival,
                 departure,
                 adults,
                 children,
+                options: Vec::new(),
             },
             QuoteContext {
                 today: TODAY,
                 rules,
                 nights,
                 cleaning_fee: 6_000,
+                promotions: &[],
+                options: &[],
             },
         )
     }
@@ -251,7 +323,11 @@ mod tests {
             Quote {
                 nights: 3,
                 nights_total: 30_000,
+                discount: 0,
+                promotion: None,
                 cleaning_fee: 6_000,
+                options: Vec::new(),
+                options_total: 0,
                 stay_total: 36_000,
                 deposit: 18_000,
                 balance: 18_000,
@@ -385,5 +461,91 @@ mod tests {
             )
             .is_ok()
         );
+    }
+
+    fn linen() -> StayOption {
+        StayOption {
+            name: Localized {
+                fr: "Linge de maison".to_owned(),
+                en: String::new(),
+            },
+            description: Localized::default(),
+            unit: OptionUnit::Guest,
+            price: 1_500,
+            bounds: NightBounds {
+                min_nights: Some(3),
+                max_nights: None,
+            },
+            position: 0,
+            active: true,
+        }
+    }
+
+    #[test]
+    fn f026_s01_s04_promotion_and_options_in_the_quote() {
+        let week = Promotion {
+            name: Localized {
+                fr: "Semaine".to_owned(),
+                en: String::new(),
+            },
+            discount: Discount::Percent { bp: 1000 },
+            bounds: NightBounds {
+                min_nights: Some(7),
+                max_nights: None,
+            },
+            valid_from: None,
+            valid_until: None,
+            active: true,
+        };
+        let options = [(4, linen())];
+        let rules = rules();
+        let nights = offers();
+        let context = QuoteContext {
+            today: TODAY,
+            rules: &rules,
+            nights: &nights,
+            cleaning_fee: 6_000,
+            promotions: std::slice::from_ref(&week),
+            options: &options,
+        };
+        let request = StayRequest {
+            arrival: date!(2027 - 05 - 01),
+            departure: date!(2027 - 05 - 08),
+            adults: 2,
+            children: 0,
+            options: vec![4],
+        };
+        let quote = quote(&request, context).unwrap();
+        assert_eq!(quote.nights_total, 70_000);
+        assert_eq!(quote.discount, 7_000);
+        assert_eq!(quote.promotion, Some(0));
+        assert_eq!(
+            quote.options,
+            vec![QuotedOption {
+                id: 4,
+                price: 3_000,
+                selected: true
+            }]
+        );
+        assert_eq!(quote.options_total, 3_000);
+        assert_eq!(quote.stay_total, 70_000 - 7_000 + 6_000 + 3_000);
+        assert_eq!(quote.deposit, quote.stay_total / 2);
+
+        // 2 nights: no promotion, the linen is not offered and cannot be ticked.
+        let short = StayRequest {
+            departure: date!(2027 - 05 - 03),
+            ..request.clone()
+        };
+        assert_eq!(
+            super::quote(&short, context).unwrap_err(),
+            vec![QuoteRefusal::OptionNotOffered]
+        );
+        let short = StayRequest {
+            options: Vec::new(),
+            ..short
+        };
+        let quote = super::quote(&short, context).unwrap();
+        assert_eq!((quote.discount, quote.promotion), (0, None));
+        assert_eq!(quote.options, Vec::new());
     }
 }

@@ -9,9 +9,10 @@ use serde::{Deserialize, Serialize};
 use time::Date;
 
 use crate::app_state::AppState;
-use crate::application::quote::{PublicCalendar, QuoteError};
+use crate::application::quote::{PublicCalendar, QuoteError, QuoteResult};
 use crate::domain::house_rules::Weekdays;
-use crate::domain::quote::{Quote, StayRequest};
+use crate::domain::page::Lang;
+use crate::domain::quote::StayRequest;
 use crate::http::error::ApiError;
 
 /// Public routes: `/api/calendar` and `/api/quote`.
@@ -101,13 +102,45 @@ pub struct QuoteRequest {
     adults: u8,
     #[serde(default)]
     children: u8,
+    /// Ids of the ticked options (F026).
+    #[serde(default)]
+    options: Vec<u64>,
+    /// Language of the names of the promotion and options.
+    #[serde(default = "french")]
+    lang: Lang,
+}
+
+fn french() -> Lang {
+    Lang::Fr
+}
+
+#[derive(Debug, Serialize)]
+pub struct PromotionResponse {
+    name: String,
+    /// Discount on the nights, in cents.
+    discount: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct QuotedOptionResponse {
+    id: u64,
+    name: String,
+    description: String,
+    /// Price for this stay in cents; 0 when offered.
+    price: u64,
+    selected: bool,
 }
 
 #[derive(Debug, Serialize)]
 pub struct QuoteResponse {
     nights: u64,
     nights_total: u64,
+    /// Best promotion that applies (F026); `null` when none.
+    promotion: Option<PromotionResponse>,
     cleaning_fee: u64,
+    /// Options offered for this stay (F026).
+    options: Vec<QuotedOptionResponse>,
+    options_total: u64,
     stay_total: u64,
     deposit: u64,
     balance: u64,
@@ -117,12 +150,29 @@ pub struct QuoteResponse {
     tourist_tax: u64,
 }
 
-impl From<Quote> for QuoteResponse {
-    fn from(quote: Quote) -> Self {
+impl QuoteResponse {
+    fn new(result: QuoteResult, lang: Lang) -> Self {
+        let quote = result.quote;
         Self {
             nights: quote.nights,
             nights_total: quote.nights_total,
+            promotion: result.promotion.map(|promotion| PromotionResponse {
+                name: promotion.name.get(lang).to_owned(),
+                discount: quote.discount,
+            }),
             cleaning_fee: quote.cleaning_fee,
+            options: result
+                .options
+                .into_iter()
+                .map(|(quoted, option)| QuotedOptionResponse {
+                    id: quoted.id,
+                    name: option.name.get(lang).to_owned(),
+                    description: option.description.get(lang).to_owned(),
+                    price: quoted.price,
+                    selected: quoted.selected,
+                })
+                .collect(),
+            options_total: quote.options_total,
             stay_total: quote.stay_total,
             deposit: quote.deposit,
             balance: quote.balance,
@@ -137,14 +187,15 @@ async fn quote(
     body: Result<Json<QuoteRequest>, JsonRejection>,
 ) -> Result<Json<QuoteResponse>, ApiError> {
     let Json(request) = body.map_err(|rejection| ApiError::BadRequest(rejection.body_text()))?;
-    let quote = state
+    let result = state
         .quotes
         .quote(StayRequest {
             arrival: request.arrival,
             departure: request.departure,
             adults: request.adults,
             children: request.children,
+            options: request.options,
         })
         .await?;
-    Ok(Json(quote.into()))
+    Ok(Json(QuoteResponse::new(result, request.lang)))
 }

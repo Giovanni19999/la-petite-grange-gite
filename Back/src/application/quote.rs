@@ -9,10 +9,14 @@ use time::{Date, Duration};
 use crate::application::auth::Clock;
 use crate::application::calendar::{CalendarError, CalendarService};
 use crate::application::house_rules::HouseRulesService;
+use crate::application::offers::OffersService;
 use crate::application::pricing::{PriceBookError, PricingService};
 use crate::domain::calendar::paris_date;
 use crate::domain::house_rules::{HouseRules, earliest_arrival};
-use crate::domain::quote::{NightOffer, Quote, QuoteContext, QuoteRefusal, StayRequest, quote};
+use crate::domain::offers::{Promotion, StayOption};
+use crate::domain::quote::{
+    NightOffer, Quote, QuoteContext, QuoteRefusal, QuotedOption, StayRequest, quote,
+};
 
 /// Seeded code of the site's own channel (F006): visitors only see its prices.
 pub const SITE_CHANNEL: &str = "direct";
@@ -26,6 +30,15 @@ pub struct PublicCalendar {
     pub rules: HouseRules,
     /// Each night of the asked range; `price` is `None` when it cannot be booked.
     pub nights: Vec<NightOffer>,
+}
+
+/// A quote with the promotion and options it names (F026).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuoteResult {
+    pub quote: Quote,
+    pub promotion: Option<Promotion>,
+    /// Options offered for the stay, with their price for this stay.
+    pub options: Vec<(QuotedOption, StayOption)>,
 }
 
 /// Why the calendar or a quote cannot be given.
@@ -63,6 +76,7 @@ pub struct QuoteService {
     calendar: Arc<CalendarService>,
     pricing: Arc<PricingService>,
     rules: Arc<HouseRulesService>,
+    offers: Arc<OffersService>,
     clock: Arc<dyn Clock>,
 }
 
@@ -78,12 +92,14 @@ impl QuoteService {
         calendar: Arc<CalendarService>,
         pricing: Arc<PricingService>,
         rules: Arc<HouseRulesService>,
+        offers: Arc<OffersService>,
         clock: Arc<dyn Clock>,
     ) -> Self {
         Self {
             calendar,
             pricing,
             rules,
+            offers,
             clock,
         }
     }
@@ -98,7 +114,7 @@ impl QuoteService {
         let rules = self.rules.rules().await?;
         let today = paris_date(self.clock.now());
         let earliest = earliest_arrival(today, rules.min_delay_days);
-        let nights = self.offers(from, to, earliest).await?;
+        let nights = self.night_offers(from, to, earliest).await?;
         Ok(PublicCalendar {
             earliest_arrival: earliest,
             last_night: rules.horizon.first_closed_night(today) - Duration::days(1),
@@ -112,7 +128,7 @@ impl QuoteService {
     /// # Errors
     ///
     /// The reasons the stay cannot be booked, a too long stay, infrastructure.
-    pub async fn quote(&self, request: StayRequest) -> Result<Quote, QuoteError> {
+    pub async fn quote(&self, request: StayRequest) -> Result<QuoteResult, QuoteError> {
         if request.departure <= request.arrival {
             return Err(QuoteError::Refused(vec![QuoteRefusal::DatesOrder]));
         }
@@ -120,24 +136,56 @@ impl QuoteService {
         let today = paris_date(self.clock.now());
         let earliest = earliest_arrival(today, rules.min_delay_days);
         let nights = self
-            .offers(request.arrival, request.departure, earliest)
+            .night_offers(request.arrival, request.departure, earliest)
             .await?;
         let cleaning_fee = self.pricing.book().await?.settings.cleaning_fee;
-        quote(
-            request,
+        let promotions: Vec<Promotion> = self
+            .offers
+            .promotions()
+            .await?
+            .into_iter()
+            .map(|stored| stored.promotion)
+            .collect();
+        let options: Vec<(u64, StayOption)> = self
+            .offers
+            .options()
+            .await?
+            .into_iter()
+            .map(|stored| (stored.id, stored.option))
+            .collect();
+        let quote = quote(
+            &request,
             QuoteContext {
                 today,
                 rules: &rules,
                 nights: &nights,
                 cleaning_fee,
+                promotions: &promotions,
+                options: &options,
             },
         )
-        .map_err(QuoteError::Refused)
+        .map_err(QuoteError::Refused)?;
+        Ok(QuoteResult {
+            promotion: quote
+                .promotion
+                .and_then(|index| promotions.get(index).cloned()),
+            options: quote
+                .options
+                .iter()
+                .filter_map(|quoted| {
+                    options
+                        .iter()
+                        .find(|(id, _)| *id == quoted.id)
+                        .map(|(_, option)| (*quoted, option.clone()))
+                })
+                .collect(),
+            quote,
+        })
     }
 
     /// Each night with its site price, `None` when taken, closed, too soon, beyond the
     /// horizon or without price.
-    async fn offers(
+    async fn night_offers(
         &self,
         from: Date,
         to: Date,

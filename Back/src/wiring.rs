@@ -15,6 +15,7 @@ use crate::application::auth::{AuthPorts, AuthService, LoginThrottle};
 use crate::application::calendar::{CalendarPorts, CalendarService, NoStays};
 use crate::application::house_rules::HouseRulesService;
 use crate::application::media::{MediaPorts, MediaService, MediaSettings};
+use crate::application::offers::OffersService;
 use crate::application::pages::PageService;
 use crate::application::pricing::{PricingPorts, PricingService};
 use crate::application::quote::QuoteService;
@@ -29,6 +30,7 @@ use crate::infrastructure::images::WebpImageProcessor;
 use crate::infrastructure::mariadb::{MariaDbProbe, lazy_pool, migrate};
 use crate::infrastructure::media::MariaDbMedia;
 use crate::infrastructure::media_files::FsMediaFiles;
+use crate::infrastructure::offers::MariaDbOffers;
 use crate::infrastructure::pages::MariaDbPages;
 use crate::infrastructure::pricing::MariaDbPricing;
 
@@ -206,10 +208,16 @@ pub fn app_state(
         Arc::new(MariaDbHouseRules::new(pool.clone())),
         Arc::new(SystemClock),
     ));
+    let offers = Arc::new(OffersService::new(
+        Arc::new(MariaDbCottages::new(pool.clone())),
+        Arc::new(MariaDbOffers::new(pool.clone())),
+        Arc::new(SystemClock),
+    ));
     let quotes = Arc::new(QuoteService::new(
         calendar.clone(),
         pricing.clone(),
         house_rules.clone(),
+        offers.clone(),
         Arc::new(SystemClock),
     ));
     Ok(AppState {
@@ -224,6 +232,7 @@ pub fn app_state(
         calendar,
         pricing,
         house_rules,
+        offers,
         quotes,
         serve_media_dir: None,
         trust_proxy_headers: false,
