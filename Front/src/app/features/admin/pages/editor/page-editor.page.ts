@@ -247,8 +247,9 @@ const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
                       }
                     </div>
                     <div
-                      class="absolute top-2 right-2 z-10 flex gap-1 rounded-md border bg-background p-1 shadow-sm group-hover:opacity-100 focus-within:opacity-100"
+                      class="absolute top-2 right-2 z-10 flex gap-1 rounded-md border bg-background p-1 shadow-sm group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100"
                       [class.opacity-0]="store.selectedId() !== block.id"
+                      [class.pointer-events-none]="store.selectedId() !== block.id"
                       role="toolbar"
                       [attr.aria-label]="
                         'Actions du bloc ' + label(block.type) + ' (' + (i + 1) + ')'
@@ -349,6 +350,55 @@ const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
             <hlm-sheet-header>
               <h2 hlmSheetTitle>Modifier le bloc</h2>
             </hlm-sheet-header>
+            @if (store.selectedBlock(); as block) {
+              @let index = selectedIndex();
+              <div
+                class="mb-3 flex flex-wrap gap-2"
+                role="toolbar"
+                aria-label="Actions du bloc"
+                data-testid="drawer-actions"
+              >
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  [disabled]="index <= 0"
+                  (click)="move(index, index - 1)"
+                >
+                  ↑ Monter
+                </button>
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  [disabled]="index >= blockCount() - 1"
+                  (click)="move(index, index + 1)"
+                >
+                  ↓ Descendre
+                </button>
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  (click)="store.duplicate(block.id)"
+                >
+                  Dupliquer
+                </button>
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  class="text-destructive"
+                  (click)="drawerOpen.set(false); toDelete.set(block.id)"
+                >
+                  Supprimer
+                </button>
+              </div>
+            }
             @if (store.selectedBlock(); as block) {
               <app-block-panel
                 [block]="block"
@@ -454,6 +504,12 @@ export class PageEditorPage {
   protected readonly historyOpen = signal(false);
   protected readonly versions = signal<PageVersion[]>([]);
   protected readonly toDelete = signal<string | null>(null);
+  /** Position of the selected block, for the actions of the phone drawer. */
+  protected readonly selectedIndex = computed(
+    () =>
+      this.store.content()?.blocks.findIndex((block) => block.id === this.store.selectedId()) ?? -1,
+  );
+  protected readonly blockCount = computed(() => this.store.content()?.blocks.length ?? 0);
   protected readonly toRestore = signal<number | null>(null);
   protected readonly publishOpen = signal(false);
   protected readonly publishing = signal(false);

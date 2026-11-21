@@ -204,6 +204,38 @@ describe('F023 page editor', () => {
     expect(drawer?.textContent).toContain('Bandeau');
   });
 
+  it('F023-S15 on a phone the drawer moves, duplicates and deletes the block', async () => {
+    await open(false);
+    const ids = () => previewBlocks().map((block) => block.dataset['blockId']);
+    const before = ids();
+    previewBlocks()[0].querySelector<HTMLElement>('[role="button"]')!.click();
+    await settle();
+    const actions = () => document.querySelector<HTMLElement>('[data-testid="drawer-actions"]')!;
+    const action = (text: string) =>
+      Array.from(actions().querySelectorAll('button')).find((b) => b.textContent?.includes(text))!;
+    expect(action('Monter').disabled).toBe(true);
+
+    action('Descendre').click();
+    await settle();
+    expect(ids()).toEqual([before[1], before[0], ...before.slice(2)]);
+    expect(action('Monter').disabled).toBe(false);
+
+    action('Dupliquer').click();
+    await settle();
+    expect(ids().length).toBe(before.length + 1);
+
+    action('Supprimer').click();
+    await settle();
+    expect(document.querySelector('[data-slot="alert-dialog-action"]')).not.toBeNull();
+  });
+
+  it('F023-S15 the invisible action bar of a block that is not selected cannot be touched', async () => {
+    await open();
+    const toolbar = previewBlocks()[1].querySelector<HTMLElement>('[role="toolbar"]')!;
+    expect(toolbar.classList).toContain('opacity-0');
+    expect(toolbar.classList).toContain('pointer-events-none');
+  });
+
   it('F003-S08 a photo chosen for the hero is shown in the preview', async () => {
     await open();
     previewBlocks()[0].querySelector<HTMLElement>('[role="button"]')!.click();
