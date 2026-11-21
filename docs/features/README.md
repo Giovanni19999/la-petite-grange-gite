@@ -8,7 +8,7 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | [F001](F001-admin-auth.md) | Owner authentication (admin login) | implemented | 0011 |
 | [F002](F002-block-pages.md) | Pages built from blocks: draft, publication, versions and public rendering (FR/EN) | implemented | 0009, 0013 |
 | [F003](F003-media-library.md) | Media library: upload, WebP sizes, focal point, alt text, images in blocks | implemented | 0009, 0017 |
-| [F004](F004-availability-calendar.md) | Availability calendar with the nightly price under each free date | draft | 0005, 0008, 0009, 0010 |
+| [F004](F004-availability-calendar.md) | Availability calendar with the nightly price under each free date, house rules, quote | frozen | 0005, 0008, 0009, 0010 |
 | [F005](F005-blocked-periods.md) | Blocked periods: closure, family, private event | implemented | 0002, 0003, 0007, 0010, 0011 |
 | [F006](F006-prices-per-period-and-channel.md) | Prices per date range and per channel (listed / net), default price | implemented | 0002, 0003, 0007, 0008, 0010, 0011, 0018 |
 | [F007](F007-instant-booking-with-deposit.md) | Instant booking with online deposit (percentage or fixed amount) | draft | 0005, 0006, 0007, 0010 |
@@ -29,3 +29,5 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | [F022](F022-containers.md) | Containers: API and front end in separate images, behind Caddy | implemented | 0012 |
 | [F023](F023-page-editor.md) | Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog) | implemented | 0009, 0015 |
 | [F024](F024-image-and-carousel-blocks.md) | Fixed image or carousel: hero carousel, image and carousel blocks | implemented | 0009, 0017 |
+| [F025](F025-email-and-sms-sending.md) | Email and SMS sending: SMTP server and SMS provider set by the owners | draft | 0002, 0010 |
+| [F026](F026-promotions-and-options-by-stay-length.md) | Promotions and options offered by stay length (optional minimum and maximum nights) | draft | 0008, 0010 |
