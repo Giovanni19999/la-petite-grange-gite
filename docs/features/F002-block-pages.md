@@ -2,7 +2,7 @@
 id: F002
 title: "Pages built from blocks: draft, publication, versions and public rendering (FR/EN)"
 status: implemented
-version: 1
+version: 2
 adr: [ADR-0009, ADR-0013, ADR-0002, ADR-0011]
 ---
 
@@ -21,7 +21,7 @@ so that I discover the cottage in my language.
 ## Business rules
 
 * A page has, per language, a slug, a title and a meta description, plus "shown in the menu" and a menu position. The home page has the reserved slug `accueil` / `home`, is always in the menu first and cannot be deleted.
-* Content is an ordered list of blocks. Block types in this feature: `hero` (image, title, subtitle, button text and link; text alignment, height, image darkening 0–80 %), `text` (rich text; width narrow/wide; alignment), `text_image` (rich text, image; image left/right; ratio 50-50 or 33-67), `columns` (2 to 4 items with title and rich text), `gallery` (images; 2/3/4 columns). Common settings: visible, background (`background` / `muted` / `primary`), spacing (`small` / `medium` / `large`), hide on mobile.
+* Content is an ordered list of blocks. Block types in this feature: `hero` (image, title, subtitle, button text and link; text alignment, height, image darkening 0–80 %), `text` (rich text; width narrow/wide; alignment), `text_image` (rich text, image; image left/right; ratio 50-50 or 33-67), `columns` (2 to 4 items with title and rich text; text alignment left / center / right, left by default, also for blocks saved before this option), `gallery` (images; 2/3/4 columns). Common settings: visible, background (`background` / `muted` / `primary`), spacing (`small` / `medium` / `large`), hide on mobile.
 * Texts exist in French and in English; an empty English text falls back to French.
 * Rich text is sanitised on save: only paragraphs, line breaks, bold, italic, lists, headings h2–h4 and links (http, https, mailto, tel); anything else is removed.
 * Unknown block types or options, missing French title, duplicated or invalid slugs are rejected with a clear message.
@@ -89,6 +89,12 @@ Feature: Pages built from blocks
     Given the owner is not logged in
     When someone calls any /api/admin/pages endpoint
     Then the response status is 401
+
+  Scenario: F002-S11 Text alignment of a columns block
+    Given a page with a "columns" block of 2 columns
+    When the owner chooses "Centré" (or "À droite") for the block's text
+    Then the title and text of every column are centered (or aligned right), in the preview and on the site
+    And a columns block saved before this option stays aligned left
 ```
 
 ## Out of scope
@@ -109,7 +115,9 @@ Feature: Pages built from blocks
 | F002-S08 | `Back/tests/pages.rs::f002_s08_restore` |
 | F002-S09 | `Back/src/domain/page.rs::tests::f002_s09_*`, `Back/tests/pages.rs::f002_s09_*` |
 | F002-S10 | `Back/tests/pages.rs::f002_s10_admin_requires_session` |
+| F002-S11 | `Back/src/domain/page.rs::tests::f002_s11_*`, `Front/src/app/features/public/pages/ui/blocks/blocks.spec.ts` |
 
 ## Changelog
 
 * v1 (2026-11-20): first version.
+* v2 (2026-11-21): text alignment of the columns block (left / center / right), at the owners' request; scenario S11.
