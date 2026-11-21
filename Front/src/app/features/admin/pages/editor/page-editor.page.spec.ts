@@ -170,15 +170,26 @@ describe('F023 page editor', () => {
     expect(root().querySelector('[data-testid="preview"]')?.getAttribute('lang')).toBe('en');
   });
 
-  it('F023-S09 the phone preview is narrow and hides "hide on mobile" blocks', async () => {
+  it('F023-S09 the phone preview keeps "hide on mobile" blocks, greyed out with a badge', async () => {
     await open();
     button('Téléphone').click();
     await settle();
     const preview = root().querySelector<HTMLElement>('[data-testid="preview"]')!;
     expect(preview.style.maxWidth).toBe('375px');
     expect(preview.classList).toContain('@container');
-    const frame = previewBlocks()[1].querySelector('app-block-frame') as HTMLElement;
-    expect(frame.className).toContain('@max-3xl:hidden');
+    const hidden = previewBlocks()[1];
+    const frame = hidden.querySelector('app-block-frame') as HTMLElement;
+    expect(frame.className).not.toContain('@max-3xl:hidden');
+    const selectable = hidden.querySelector<HTMLElement>('[role="button"]')!;
+    expect(selectable.className).toContain('@max-3xl:opacity-60');
+    const badge = hidden.querySelector<HTMLElement>('[data-testid="hidden-on-mobile"]')!;
+    expect(badge.textContent?.trim()).toBe('Masqué sur téléphone');
+    expect(badge.className).toContain('@max-3xl:inline-block');
+    // Other blocks get no badge.
+    expect(previewBlocks()[0].querySelector('[data-testid="hidden-on-mobile"]')).toBeNull();
+    selectable.click();
+    await settle();
+    expect(selectable.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('F023-S15 on a narrow screen the block panel opens as a bottom drawer', async () => {
