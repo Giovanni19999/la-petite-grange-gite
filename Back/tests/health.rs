@@ -42,6 +42,7 @@ fn app(database_reachable: bool) -> axum::Router {
         defaults.login_throttle,
         &media_dir,
         defaults.media,
+        defaults.availability_max_days,
     )
     .unwrap();
     state.database = Arc::new(FakeDatabase {

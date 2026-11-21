@@ -108,6 +108,8 @@ pub struct Config {
     pub media: MediaSettings,
     /// Serve the public media files from the API (development only; Caddy does it otherwise).
     pub serve_media_files: bool,
+    /// Longest range, in days, the public availability endpoint answers (F005).
+    pub availability_max_days: u32,
 }
 
 /// Configuration error, always naming the faulty variable.
@@ -138,6 +140,7 @@ mod defaults {
     pub const MEDIA_MAX_MEGAPIXELS: &str = "50";
     pub const MEDIA_WIDTHS: &str = "480,960,1440,1920";
     pub const MEDIA_WEBP_QUALITY: &str = "80";
+    pub const AVAILABILITY_MAX_DAYS: &str = "400";
 }
 
 impl Config {
@@ -234,6 +237,8 @@ impl Config {
         };
 
         let (media_dir, media, serve_media_files) = media_config(&lookup)?;
+        let availability_max_days =
+            positive("AVAILABILITY_MAX_DAYS", defaults::AVAILABILITY_MAX_DAYS)?;
 
         Ok(Self {
             app_env,
@@ -247,6 +252,7 @@ impl Config {
             media_dir,
             media,
             serve_media_files,
+            availability_max_days,
         })
     }
 }
