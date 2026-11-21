@@ -210,6 +210,7 @@ fn public_block(block: &Block, lang: Lang, images: &ImageMap) -> Value {
             "type": "carousel", "images": image_list(slides, images, lang),
             "height": height, "autoplay": autoplay, "interval": interval
         }),
+        BlockKind::Availability { months } => json!({ "type": "availability", "months": months }),
     };
     if let Value::Object(map) = &mut value {
         map.insert("id".into(), json!(block.id));

@@ -239,10 +239,20 @@ pub enum BlockKind {
         #[serde(default = "default_interval")]
         interval: u8,
     },
+    /// Public calendar with the nightly price and the quote (F004).
+    Availability {
+        /// Months shown side by side on a computer.
+        #[serde(default = "default_availability_months")]
+        months: u8,
+    },
 }
 
 fn align_left() -> Align {
     Align::Left
+}
+
+fn default_availability_months() -> u8 {
+    2
 }
 
 fn default_gallery_columns() -> u8 {
@@ -313,6 +323,8 @@ pub enum ContentError {
     ColumnCount(String),
     #[error("la galerie « {0} » doit avoir 2, 3 ou 4 colonnes")]
     GalleryColumns(String),
+    #[error("le calendrier « {0} » affiche de 1 à 3 mois")]
+    AvailabilityMonths(String),
     #[error("l'assombrissement du bloc « {0} » doit être entre 0 et {max} %", max = MAX_DARKEN)]
     Darken(String),
     #[error("lien du bouton invalide dans le bloc « {0} »")]
@@ -398,7 +410,9 @@ impl PageContent {
                 BlockKind::Gallery { images, .. } | BlockKind::Carousel { images, .. } => {
                     images.clone()
                 }
-                BlockKind::Text { .. } | BlockKind::Columns { .. } => Vec::new(),
+                BlockKind::Text { .. }
+                | BlockKind::Columns { .. }
+                | BlockKind::Availability { .. } => Vec::new(),
             };
             for id in used {
                 if !ids.contains(&id) {
@@ -453,6 +467,9 @@ impl PageContent {
                 }
                 BlockKind::Gallery { columns, .. } if !(2..=4).contains(columns) => {
                     errors.push(ContentError::GalleryColumns(block.id.clone()));
+                }
+                BlockKind::Availability { months } if !(1..=3).contains(months) => {
+                    errors.push(ContentError::AvailabilityMonths(block.id.clone()));
                 }
                 BlockKind::Carousel {
                     images, interval, ..
@@ -529,7 +546,8 @@ impl PageContent {
                 }
                 BlockKind::Gallery { .. }
                 | BlockKind::Image { .. }
-                | BlockKind::Carousel { .. } => {}
+                | BlockKind::Carousel { .. }
+                | BlockKind::Availability { .. } => {}
             }
         }
         self
@@ -569,9 +587,10 @@ impl Block {
                 .iter()
                 .flat_map(|item| [item.title.raw(lang), item.body.raw(lang)])
                 .collect(),
-            BlockKind::Gallery { .. } | BlockKind::Image { .. } | BlockKind::Carousel { .. } => {
-                Vec::new()
-            }
+            BlockKind::Gallery { .. }
+            | BlockKind::Image { .. }
+            | BlockKind::Carousel { .. }
+            | BlockKind::Availability { .. } => Vec::new(),
         }
     }
 }
@@ -737,6 +756,29 @@ mod tests {
             })
             .collect();
         assert_eq!(aligns, vec![Align::Center, Align::Left]);
+    }
+
+    #[test]
+    fn f004_availability_block() {
+        let content = PageContent::parse(&page(json!([
+            { "id": "a", "type": "availability" },
+            { "id": "b", "type": "availability", "months": 3 }
+        ])))
+        .unwrap();
+        let months: Vec<u8> = content
+            .blocks
+            .iter()
+            .filter_map(|block| match block.kind {
+                BlockKind::Availability { months } => Some(months),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(months, vec![2, 3]);
+        let errors = PageContent::parse(&page(json!([
+            { "id": "a", "type": "availability", "months": 4 }
+        ])))
+        .unwrap_err();
+        assert_eq!(errors, vec![ContentError::AvailabilityMonths("a".into())]);
     }
 
     #[test]
