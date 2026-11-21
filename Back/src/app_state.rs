@@ -9,6 +9,7 @@ use crate::application::calendar::CalendarService;
 use crate::application::health::DatabaseProbe;
 use crate::application::media::MediaService;
 use crate::application::pages::PageService;
+use crate::application::pricing::PricingService;
 
 /// Application state: the use cases and ports the handlers need.
 #[derive(Clone)]
@@ -18,6 +19,7 @@ pub struct AppState {
     pub pages: Arc<PageService>,
     pub media: Arc<MediaService>,
     pub calendar: Arc<CalendarService>,
+    pub pricing: Arc<PricingService>,
     /// Directory of the public media files, served by the API itself in development only
     /// (`SERVE_MEDIA_FILES`); in production Caddy serves them (ADR-0017).
     pub serve_media_dir: Option<PathBuf>,
