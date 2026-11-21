@@ -40,6 +40,11 @@ export const adminRoutes: Routes = [
         loadComponent: () => import('./prices/prices.page').then((m) => m.PricesPage),
       },
       {
+        path: 'promotions',
+        title: 'Promotions et options - La Petite Grange',
+        loadComponent: () => import('./offers/offers.page').then((m) => m.OffersPage),
+      },
+      {
         path: 'regles',
         title: 'Règles du gîte - La Petite Grange',
         loadComponent: () => import('./house-rules/house-rules.page').then((m) => m.HouseRulesPage),
