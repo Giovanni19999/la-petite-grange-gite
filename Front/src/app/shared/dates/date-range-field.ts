@@ -6,6 +6,7 @@ import {
   input,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 
 import {
@@ -136,6 +137,8 @@ export class DateRangeField {
   protected readonly weekdays = WEEKDAYS_SHORT;
   protected readonly today = todayInParis();
   private readonly shown = signal(monthOf(this.today));
+  /** "Du" alone: changes of "Au" do not move the calendar. */
+  private readonly startDate = computed(() => this.value().start);
 
   protected readonly days = computed(() => monthGrid(this.shown().year, this.shown().month));
   protected readonly monthTitle = computed(() =>
@@ -149,15 +152,12 @@ export class DateRangeField {
   });
 
   constructor() {
-    // Typing or loading a date shows its month.
+    // Typing or loading "Du" shows its month. Only "Du" is tracked: the month arrows must
+    // stay free to show other months afterwards.
     effect(() => {
-      const start = this.value().start;
+      const start = this.startDate();
       if (start && parseIso(start)) {
-        const month = monthOf(start);
-        const shown = this.shown();
-        if (month.year !== shown.year || month.month !== shown.month) {
-          this.shown.set(month);
-        }
+        untracked(() => this.shown.set(monthOf(start)));
       }
     });
   }

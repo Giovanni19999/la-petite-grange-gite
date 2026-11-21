@@ -79,6 +79,26 @@ describe('F005 DateRangeField', () => {
     expect(root.querySelector('[role="alert"]')?.textContent).toContain('« Au » doit être après');
   });
 
+  it('F005-S09 the month arrows move the calendar even when "Du" is chosen', async () => {
+    const { fixture, root, day } = await render({ start: '2027-05-03', end: null });
+    const arrow = (label: string) =>
+      root.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+    arrow('Mois suivant').click();
+    await fixture.whenStable();
+    expect(day('2027-06-15')).not.toBeNull();
+    expect(day('2027-05-15')).toBeNull();
+    arrow('Mois suivant').click();
+    await fixture.whenStable();
+    expect(day('2027-07-15')).not.toBeNull();
+    // Choosing "Au" in July keeps July on screen.
+    day('2027-07-20').click();
+    await fixture.whenStable();
+    expect(day('2027-07-15')).not.toBeNull();
+    arrow('Mois précédent').click();
+    await fixture.whenStable();
+    expect(day('2027-06-15')).not.toBeNull();
+  });
+
   it('F005-S05 open-ended ranges disable "Au"', async () => {
     const { fixture, endInput, day } = await render({ start: '2027-05-03', end: null });
     fixture.componentRef.setInput('openEnded', true);
