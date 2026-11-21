@@ -13,15 +13,18 @@ use crate::app_state::AppState;
 use crate::application::admin_accounts::AdminAccounts;
 use crate::application::auth::{AuthPorts, AuthService, LoginThrottle};
 use crate::application::calendar::{CalendarPorts, CalendarService, NoStays};
+use crate::application::house_rules::HouseRulesService;
 use crate::application::media::{MediaPorts, MediaService, MediaSettings};
 use crate::application::pages::PageService;
 use crate::application::pricing::{PricingPorts, PricingService};
+use crate::application::quote::QuoteService;
 use crate::config::Config;
 use crate::domain::auth::SessionPolicy;
 use crate::infrastructure::auth::{
     Argon2Hasher, MariaDbSessions, MariaDbUsers, OsRandom, SystemClock,
 };
 use crate::infrastructure::calendar::{MariaDbBlockedPeriods, MariaDbCottages};
+use crate::infrastructure::house_rules::MariaDbHouseRules;
 use crate::infrastructure::images::WebpImageProcessor;
 use crate::infrastructure::mariadb::{MariaDbProbe, lazy_pool, migrate};
 use crate::infrastructure::media::MariaDbMedia;
@@ -189,6 +192,26 @@ pub fn app_state(
     availability_max_days: u32,
 ) -> anyhow::Result<AppState> {
     let media = Arc::new(media_service(pool, media_dir, media_settings)?);
+    let calendar = Arc::new(calendar_service(pool, availability_max_days));
+    let pricing = Arc::new(PricingService::new(
+        PricingPorts {
+            cottages: Arc::new(MariaDbCottages::new(pool.clone())),
+            prices: Arc::new(MariaDbPricing::new(pool.clone())),
+            clock: Arc::new(SystemClock),
+        },
+        availability_max_days,
+    ));
+    let house_rules = Arc::new(HouseRulesService::new(
+        Arc::new(MariaDbCottages::new(pool.clone())),
+        Arc::new(MariaDbHouseRules::new(pool.clone())),
+        Arc::new(SystemClock),
+    ));
+    let quotes = Arc::new(QuoteService::new(
+        calendar.clone(),
+        pricing.clone(),
+        house_rules.clone(),
+        Arc::new(SystemClock),
+    ));
     Ok(AppState {
         database: Arc::new(MariaDbProbe::new(pool.clone())),
         auth: Arc::new(auth_service(pool, policy, throttle)?),
@@ -198,15 +221,10 @@ pub fn app_state(
             media.clone(),
         )),
         media,
-        calendar: Arc::new(calendar_service(pool, availability_max_days)),
-        pricing: Arc::new(PricingService::new(
-            PricingPorts {
-                cottages: Arc::new(MariaDbCottages::new(pool.clone())),
-                prices: Arc::new(MariaDbPricing::new(pool.clone())),
-                clock: Arc::new(SystemClock),
-            },
-            availability_max_days,
-        )),
+        calendar,
+        pricing,
+        house_rules,
+        quotes,
         serve_media_dir: None,
         trust_proxy_headers: false,
     })

@@ -2,6 +2,7 @@
 
 pub mod auth;
 pub mod calendar;
+pub mod house_rules;
 pub mod images;
 pub mod mariadb;
 pub mod media;

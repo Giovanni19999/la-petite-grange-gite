@@ -180,9 +180,11 @@ impl BlockedPeriodInput {
 
 /// How far ahead visitors may book: a rolling number of months, and an optional fixed last
 /// date; the nearest applies (house rules, ADR-0010).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BookingHorizon {
     pub months: u16,
+    #[serde(default)]
     pub until: Option<Date>,
 }
 
