@@ -111,7 +111,8 @@ async fn f004_s03_exact_quote() {
     assert_eq!(
         body,
         json!({
-            "nights": 3, "nights_total": 30000, "cleaning_fee": 6000, "stay_total": 36000,
+            "nights": 3, "nights_total": 30000, "promotion": null, "cleaning_fee": 6000,
+            "options": [], "options_total": 0, "stay_total": 36000,
             "deposit": 18000, "balance": 18000, "balance_due": arrival - Duration::days(30),
             "tourist_tax": 1122
         })
