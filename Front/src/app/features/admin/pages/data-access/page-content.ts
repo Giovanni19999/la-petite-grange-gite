@@ -190,7 +190,8 @@ export function toPreviewBlock(
     id: block.id,
     background: block.background,
     spacing: block.spacing,
-    hide_on_mobile: block.hide_on_mobile,
+    // The editor still shows it on a phone, greyed out with a badge (F023-S09).
+    hide_on_mobile: false,
   };
   let preview: PublicBlock;
   switch (block.type) {

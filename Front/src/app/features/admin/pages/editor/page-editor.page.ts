@@ -211,6 +211,7 @@ const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
                       [class.outline-2]="store.selectedId() === block.id"
                       [class.outline-primary]="store.selectedId() === block.id"
                       [class.opacity-50]="!block.visible"
+                      [class]="block.hide_on_mobile ? '@max-3xl:opacity-60' : ''"
                       role="button"
                       tabindex="0"
                       [attr.aria-label]="
@@ -229,6 +230,14 @@ const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
                           class="absolute top-2 left-2 rounded bg-foreground px-2 py-0.5 text-xs text-background"
                         >
                           Masqué sur le site
+                        </span>
+                      }
+                      @if (block.hide_on_mobile) {
+                        <span
+                          class="absolute bottom-2 left-2 hidden rounded bg-foreground px-2 py-0.5 text-xs text-background @max-3xl:inline-block"
+                          data-testid="hidden-on-mobile"
+                        >
+                          Masqué sur téléphone
                         </span>
                       }
                       @if (block.type === 'gallery' && block.images.length === 0) {
