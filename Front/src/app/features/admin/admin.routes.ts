@@ -35,6 +35,11 @@ export const adminRoutes: Routes = [
         loadComponent: () => import('./closures/closures.page').then((m) => m.ClosuresPage),
       },
       {
+        path: 'tarifs',
+        title: 'Tarifs - La Petite Grange',
+        loadComponent: () => import('./prices/prices.page').then((m) => m.PricesPage),
+      },
+      {
         path: 'medias',
         title: 'Médiathèque - La Petite Grange',
         loadComponent: () => import('./media/media-library.page').then((m) => m.MediaLibraryPage),
