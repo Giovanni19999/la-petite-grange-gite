@@ -15,6 +15,7 @@ use crate::application::auth::{AuthPorts, AuthService, LoginThrottle};
 use crate::application::calendar::{CalendarPorts, CalendarService, NoStays};
 use crate::application::media::{MediaPorts, MediaService, MediaSettings};
 use crate::application::pages::PageService;
+use crate::application::pricing::{PricingPorts, PricingService};
 use crate::config::Config;
 use crate::domain::auth::SessionPolicy;
 use crate::infrastructure::auth::{
@@ -26,6 +27,7 @@ use crate::infrastructure::mariadb::{MariaDbProbe, lazy_pool, migrate};
 use crate::infrastructure::media::MariaDbMedia;
 use crate::infrastructure::media_files::FsMediaFiles;
 use crate::infrastructure::pages::MariaDbPages;
+use crate::infrastructure::pricing::MariaDbPricing;
 
 /// What to do when the migrations cannot be applied at startup.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -197,6 +199,14 @@ pub fn app_state(
         )),
         media,
         calendar: Arc::new(calendar_service(pool, availability_max_days)),
+        pricing: Arc::new(PricingService::new(
+            PricingPorts {
+                cottages: Arc::new(MariaDbCottages::new(pool.clone())),
+                prices: Arc::new(MariaDbPricing::new(pool.clone())),
+                clock: Arc::new(SystemClock),
+            },
+            availability_max_days,
+        )),
         serve_media_dir: None,
         trust_proxy_headers: false,
     })

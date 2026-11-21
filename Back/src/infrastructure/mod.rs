@@ -7,3 +7,4 @@ pub mod mariadb;
 pub mod media;
 pub mod media_files;
 pub mod pages;
+pub mod pricing;

@@ -6,3 +6,4 @@ pub mod calendar;
 pub mod health;
 pub mod media;
 pub mod pages;
+pub mod pricing;

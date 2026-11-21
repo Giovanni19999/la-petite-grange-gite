@@ -9,3 +9,4 @@ pub mod calendar;
 pub mod media;
 
 pub mod page;
+pub mod pricing;
