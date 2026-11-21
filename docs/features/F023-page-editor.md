@@ -2,7 +2,7 @@
 id: F023
 title: "Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog)"
 status: implemented
-version: 1
+version: 2
 adr: [ADR-0009, ADR-0015, ADR-0004, ADR-0013]
 ---
 
@@ -23,7 +23,7 @@ so that I can update texts, images and layout myself, on a computer or on my pho
 * **Block panel**: the block's texts in the current language and its settings (F002 options and common settings: visible, background, spacing, hide on mobile). Rich text uses the Tiptap editor limited to the formats the API keeps (ADR-0015). Image fields show a placeholder until the media library (F003).
 * **Languages**: a FR / EN switch changes the language of the texts being edited and of the preview; layout and settings are shared by both languages. An empty English text shows the French one greyed out in the preview (the public fallback) and is marked "not translated" in the panel.
 * **Page settings** (dialog): slug, title and meta description per language, shown in the menu, menu position.
-* **Device preview**: computer / tablet / phone widths; "hide on mobile" blocks are hidden in the phone preview.
+* **Device preview**: computer / tablet / phone widths; "hide on mobile" blocks stay shown in the phone preview and on a phone, greyed out with the badge "Masqué sur téléphone", so that the owner can still select and edit them; only the public site hides them.
 * **Saving**: the draft is saved automatically a short delay after the last change (and immediately when leaving the page), sending the draft version it was based on. A status shows "Saving…", "Saved" or the error. Validation errors from the API are shown next to the block or setting concerned and nothing is lost in the editor.
 * **Conflict**: if the draft was changed elsewhere (another tab, the other owner: HTTP 409), autosave stops and the owner is told; they reload the latest draft (their unsaved change is shown so they can redo it).
 * **Publish**: the "Publish" button opens a shared confirmation dialog (`ConfirmPublishDialog`, spartan/ui Alert Dialog, keyboard accessible, focus on "Cancel" by default) showing the summary of changes from the API (blocks added, removed, changed, moved; settings changed; languages concerned) with **Publish** and **Cancel**. Publishing sends the draft version that was summarised; on HTTP 409 the dialog shows the new summary to confirm again. When there is nothing to publish, the button is disabled.
@@ -86,8 +86,10 @@ Feature: Visual page editor
 
   Scenario: F023-S09 Device preview
     Given a block is set to "hide on mobile"
-    When the owner chooses the phone preview
-    Then that block is not shown in the preview
+    When the owner chooses the phone preview, or edits the page on a phone
+    Then that block is still shown, greyed out, with the badge "Masqué sur téléphone"
+    And the owner can select and edit it
+    And visitors on a phone do not see it
 
   Scenario: F023-S10 Validation error from the API
     When the owner sets a slug already used by another page
@@ -155,3 +157,4 @@ Feature: Visual page editor
 ## Changelog
 
 * v1 (2026-11-20): first version.
+* v2 (2026-11-21): "hide on mobile" blocks stay shown (greyed out, badge) in the phone preview and when editing on a phone, at the owners' request; they could not be edited from a phone.
