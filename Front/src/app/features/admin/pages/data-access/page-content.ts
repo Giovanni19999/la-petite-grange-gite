@@ -87,7 +87,12 @@ export function newBlock(type: BlockType, taken: ReadonlySet<string>): DraftBloc
         ratio: '50-50',
       };
     case 'columns':
-      return { ...base, type, items: [emptyColumn(), emptyColumn(), emptyColumn()] };
+      return {
+        ...base,
+        type,
+        items: [emptyColumn(), emptyColumn(), emptyColumn()],
+        align: 'left',
+      };
     case 'gallery':
       return { ...base, type, images: [], columns: 3 };
     case 'image':
@@ -235,6 +240,7 @@ export function toPreviewBlock(
           title: text(item.title, `items.${index}.title`),
           body: text(item.body, `items.${index}.body`),
         })),
+        align: block.align,
       };
       break;
     case 'gallery':

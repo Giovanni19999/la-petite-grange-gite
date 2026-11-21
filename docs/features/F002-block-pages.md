@@ -92,7 +92,7 @@ Feature: Pages built from blocks
 
   Scenario: F002-S11 Text alignment of a columns block
     Given a page with a "columns" block of 2 columns
-    When the owner chooses "Centré" (or "À droite") for the block's text
+    When the owner chooses "Centre" (or "Droite") for the text alignment of the block
     Then the title and text of every column are centered (or aligned right), in the preview and on the site
     And a columns block saved before this option stays aligned left
 ```

@@ -295,6 +295,12 @@ const MAX_COLUMNS = 4;
               + Ajouter une colonne
             </button>
           }
+          <app-choice-group
+            legend="Alignement du texte"
+            [choices]="aligns"
+            [value]="b.align"
+            (changed)="patch({ align: $event })"
+          />
         }
         @case ('gallery') {
           <ng-container

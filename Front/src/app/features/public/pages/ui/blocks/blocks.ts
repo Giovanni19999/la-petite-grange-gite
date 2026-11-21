@@ -182,7 +182,7 @@ export class TextImageBlockView {
   template: `
     <div class="mx-auto grid max-w-5xl gap-8 px-4" [class]="gridClass()">
       @for (item of block().items; track $index) {
-        <div class="flex flex-col gap-2">
+        <div class="flex flex-col gap-2" [class]="alignClass()">
           @if (item.title) {
             <h2
               class="text-xl font-semibold"
@@ -204,6 +204,8 @@ export class TextImageBlockView {
 export class ColumnsBlockView {
   readonly block = input.required<ColumnsBlock>();
   protected readonly isFallback = isFallback;
+  /** Left for blocks saved before the option (F002-S11). */
+  protected readonly alignClass = computed(() => TEXT_ALIGN[this.block().align ?? 'left']);
   protected readonly gridClass = computed(
     () =>
       ({ 2: '@2xl:grid-cols-2', 3: '@2xl:grid-cols-3', 4: '@2xl:grid-cols-2 @5xl:grid-cols-4' })[

@@ -63,6 +63,8 @@ export interface TextImageBlock extends BlockBase {
 export interface ColumnsBlock extends BlockBase {
   type: 'columns';
   items: { title: string; body: string }[];
+  /** Text alignment of every column (F002-S11). */
+  align: Align;
 }
 
 export interface GalleryBlock extends BlockBase {
