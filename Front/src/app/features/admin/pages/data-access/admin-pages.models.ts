@@ -54,6 +54,7 @@ export interface DraftColumnItem {
 export interface DraftColumnsBlock extends DraftBlockBase {
   type: 'columns';
   items: DraftColumnItem[];
+  align: Align;
 }
 
 export interface DraftGalleryBlock extends DraftBlockBase {
