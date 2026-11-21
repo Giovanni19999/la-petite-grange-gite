@@ -1,7 +1,7 @@
 ---
 id: F006
 title: "Prices per date range and per channel (listed / net), default price"
-status: frozen
+status: implemented
 version: 2
 adr: [ADR-0002, ADR-0003, ADR-0007, ADR-0008, ADR-0010, ADR-0011, ADR-0018]
 ---
@@ -112,7 +112,20 @@ Feature: Prices per date range and per channel
 
 | Scenario | Test |
 |---|---|
-| F006-S01 → S13 | to be filled in when implemented |
+| F006-S01 | `Back/src/application/pricing_tests.rs::f006_s01_*`, `Back/tests/pricing.rs::f006_s01_s06_*`, `Front/src/app/features/admin/prices/prices.page.spec.ts` |
+| F006-S02 | `Back/src/application/pricing_tests.rs::f006_s02_*`, `Back/tests/pricing.rs::f006_s02_s03_*`, `Front/src/app/features/admin/prices/prices.page.spec.ts` |
+| F006-S03 | `Back/src/domain/pricing.rs::tests::f006_s03_*`, `Back/src/application/pricing_tests.rs::f006_s03_*`, `Back/tests/pricing.rs::f006_s02_s03_*` |
+| F006-S04 | `Back/src/domain/pricing.rs::tests::f006_s04_*`, `Front/src/app/features/admin/prices/data-access/price-math.spec.ts`, `Front/src/app/features/admin/prices/ui/price-table.spec.ts`, `Front/src/app/features/admin/prices/prices.page.spec.ts` |
+| F006-S05 | `Back/src/domain/pricing.rs::tests::f006_s05_*`, `Back/src/application/pricing_tests.rs::f006_s05_*`, `Back/tests/pricing.rs::f006_s05_*`, `Front/src/app/features/admin/prices/ui/price-table.spec.ts`, `Front/src/app/features/admin/prices/prices.page.spec.ts` |
+| F006-S06 | `Back/src/domain/pricing.rs::tests::f006_s06_*`, `Back/src/application/pricing_tests.rs::f006_s06_*`, `Back/tests/pricing.rs::f006_s01_s06_*`, `Front/src/app/features/admin/prices/prices.page.spec.ts` |
+| F006-S07 | `Back/src/domain/pricing.rs::tests::f006_s07_*`, `Back/src/application/pricing_tests.rs::f006_s07_*`, `Back/tests/pricing.rs::f006_s07_*` |
+| F006-S08 | `Back/src/application/pricing_tests.rs::f006_s08_*`, `Back/tests/pricing.rs::f006_s02_s03_*` |
+| F006-S09 | `Back/src/domain/pricing.rs::tests::f006_s09_*`, `Back/src/application/pricing_tests.rs::f006_s09_*`, `Back/tests/pricing.rs::f006_s09_s10_*` |
+| F006-S10 | `Back/src/application/pricing_tests.rs::f006_s10_*`, `Back/tests/pricing.rs::f006_s09_s10_*` |
+| F006-S11 | `Back/src/application/pricing_tests.rs::f006_s11_*`, `Back/tests/pricing.rs::f006_s11_s13_*` |
+| F006-S12 | `Back/tests/pricing.rs::f006_s12_admin_only` |
+| F006-S13 | `Back/src/application/pricing_tests.rs::f006_s13_*`, `Back/tests/pricing.rs::f006_s11_s13_*` |
+| Validation required | `Front/src/app/features/admin/prices/prices.page.spec.ts` |
 
 ## Changelog
 
