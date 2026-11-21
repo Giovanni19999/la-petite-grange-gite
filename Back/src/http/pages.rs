@@ -181,8 +181,9 @@ fn public_block(block: &Block, lang: Lang, images: &ImageMap) -> Value {
             "type": "text_image", "body": body.get(lang), "image": image_json(image.as_ref(), images, lang),
             "image_position": image_position, "ratio": ratio
         }),
-        BlockKind::Columns { items } => json!({
+        BlockKind::Columns { items, align } => json!({
             "type": "columns",
+            "align": align,
             "items": items.iter().map(|item| json!({
                 "title": item.title.get(lang), "body": item.body.get(lang)
             })).collect::<Vec<_>>()

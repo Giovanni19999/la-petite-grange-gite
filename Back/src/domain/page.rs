@@ -210,6 +210,9 @@ pub enum BlockKind {
     },
     Columns {
         items: Vec<ColumnItem>,
+        /// Text alignment of every column; left for blocks saved before this option.
+        #[serde(default = "align_left")]
+        align: Align,
     },
     Gallery {
         #[serde(default)]
@@ -236,6 +239,10 @@ pub enum BlockKind {
         #[serde(default = "default_interval")]
         interval: u8,
     },
+}
+
+fn align_left() -> Align {
+    Align::Left
 }
 
 fn default_gallery_columns() -> u8 {
@@ -441,7 +448,7 @@ impl PageContent {
                 errors.push(ContentError::InvalidBlockId(block.id.clone()));
             }
             match &block.kind {
-                BlockKind::Columns { items } if !(2..=4).contains(&items.len()) => {
+                BlockKind::Columns { items, .. } if !(2..=4).contains(&items.len()) => {
                     errors.push(ContentError::ColumnCount(block.id.clone()));
                 }
                 BlockKind::Gallery { columns, .. } if !(2..=4).contains(columns) => {
@@ -514,7 +521,7 @@ impl PageContent {
                 BlockKind::Text { body, .. } | BlockKind::TextImage { body, .. } => {
                     *body = rich(body);
                 }
-                BlockKind::Columns { items } => {
+                BlockKind::Columns { items, .. } => {
                     for item in items {
                         item.title = plain(&item.title);
                         item.body = rich(&item.body);
@@ -558,7 +565,7 @@ impl Block {
             BlockKind::Text { body, .. } | BlockKind::TextImage { body, .. } => {
                 vec![body.raw(lang)]
             }
-            BlockKind::Columns { items } => items
+            BlockKind::Columns { items, .. } => items
                 .iter()
                 .flat_map(|item| [item.title.raw(lang), item.body.raw(lang)])
                 .collect(),
@@ -711,6 +718,25 @@ mod tests {
         };
         assert_eq!(text.get(Lang::En), "Bonjour");
         assert_eq!(text.get(Lang::Fr), "Bonjour");
+    }
+
+    #[test]
+    fn f002_s11_columns_text_alignment() {
+        let content = PageContent::parse(&page(json!([
+            { "id": "a", "type": "columns", "items": [ {}, {} ], "align": "center" },
+            { "id": "b", "type": "columns", "items": [ {}, {} ] }
+        ])))
+        .unwrap();
+
+        let aligns: Vec<Align> = content
+            .blocks
+            .iter()
+            .filter_map(|block| match &block.kind {
+                BlockKind::Columns { align, .. } => Some(*align),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(aligns, vec![Align::Center, Align::Left]);
     }
 
     #[test]
