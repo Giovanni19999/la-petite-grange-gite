@@ -30,6 +30,11 @@ export const adminRoutes: Routes = [
           import('./pages/pages-list/pages-list.page').then((m) => m.PagesListPage),
       },
       {
+        path: 'fermetures',
+        title: 'Fermetures - La Petite Grange',
+        loadComponent: () => import('./closures/closures.page').then((m) => m.ClosuresPage),
+      },
+      {
         path: 'medias',
         title: 'Médiathèque - La Petite Grange',
         loadComponent: () => import('./media/media-library.page').then((m) => m.MediaLibraryPage),

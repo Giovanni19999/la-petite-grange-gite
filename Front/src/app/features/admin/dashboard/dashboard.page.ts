@@ -20,6 +20,7 @@ import { AuthStore } from '../../../core/auth/auth.store';
       <nav class="mt-8 flex flex-wrap gap-2" aria-label="Administration">
         <a hlmBtn variant="outline" routerLink="/admin/pages">Pages du site</a>
         <a hlmBtn variant="outline" routerLink="/admin/medias">Médiathèque</a>
+        <a hlmBtn variant="outline" routerLink="/admin/fermetures">Fermetures</a>
       </nav>
     </section>
   `,
