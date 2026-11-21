@@ -6,7 +6,9 @@
 
 pub mod auth;
 pub mod calendar;
+pub mod house_rules;
 pub mod media;
 
 pub mod page;
 pub mod pricing;
+pub mod quote;

@@ -6,9 +6,11 @@ pub mod auth;
 pub mod calendar;
 pub mod error;
 pub mod health;
+pub mod house_rules;
 pub mod media;
 pub mod pages;
 pub mod pricing;
+pub mod quote;
 pub mod server;
 
 use axum::Router;
@@ -28,7 +30,9 @@ pub fn router(state: AppState) -> Router {
         .nest("/api/admin/media", media::admin_routes(&state))
         .nest("/api/availability", calendar::public_routes())
         .nest("/api/admin/blocked-periods", calendar::admin_routes())
-        .nest("/api/admin/prices", pricing::admin_routes());
+        .nest("/api/admin/prices", pricing::admin_routes())
+        .nest("/api/admin/house-rules", house_rules::admin_routes())
+        .merge(quote::public_routes());
     // Development only: in production Caddy serves the media files (ADR-0017).
     if let Some(dir) = &state.serve_media_dir {
         let prefix = state
