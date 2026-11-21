@@ -122,18 +122,16 @@ describe('F004 house rules page', () => {
     await settle();
     button('Valider').click();
     await settle();
-    http
-      .expectOne(URL)
-      .flush(
-        {
-          error: {
-            code: 'invalid',
-            message: 'Contenu invalide',
-            details: ['capacité : de 1 à 50 personnes'],
-          },
+    http.expectOne(URL).flush(
+      {
+        error: {
+          code: 'invalid',
+          message: 'Contenu invalide',
+          details: ['capacité : de 1 à 50 personnes'],
         },
-        { status: 422, statusText: 'Unprocessable Entity' },
-      );
+      },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
     await settle();
     expect(page().textContent).toContain('capacité : de 1 à 50 personnes');
   });

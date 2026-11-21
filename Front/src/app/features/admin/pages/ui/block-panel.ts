@@ -56,6 +56,12 @@ const HERO_MODES: readonly Choice<'image' | 'carousel'>[] = [
   { value: 'image', label: 'Image fixe' },
   { value: 'carousel', label: 'Carrousel' },
 ];
+/** Months side by side on a computer (F004); one at a time on a phone. */
+const AVAILABILITY_MONTHS: readonly Choice<number>[] = [
+  { value: 1, label: '1' },
+  { value: 2, label: '2' },
+  { value: 3, label: '3' },
+];
 const IMAGE_WIDTHS: readonly Choice<'narrow' | 'wide' | 'full'>[] = [
   { value: 'narrow', label: 'Étroite' },
   { value: 'wide', label: 'Large' },
@@ -341,6 +347,18 @@ const MAX_COLUMNS = 4;
             *ngTemplateOutlet="scrolling; context: { autoplay: b.autoplay, interval: b.interval }"
           />
         }
+        @case ('availability') {
+          <p class="text-sm text-muted-foreground">
+            Calendrier des nuits libres avec le prix du site, et devis exact. Les prix se règlent
+            dans « Tarifs », les conditions dans « Règles du gîte ».
+          </p>
+          <app-choice-group
+            legend="Mois affichés sur ordinateur"
+            [choices]="availabilityMonths"
+            [value]="b.months"
+            (changed)="patch({ months: $event })"
+          />
+        }
       }
 
       <hr />
@@ -551,6 +569,7 @@ export class BlockPanel {
   protected readonly maxColumns = MAX_COLUMNS;
   protected readonly heroModes = HERO_MODES;
   protected readonly imageWidths = IMAGE_WIDTHS;
+  protected readonly availabilityMonths = AVAILABILITY_MONTHS;
   protected readonly intervalMin = INTERVAL_MIN;
   protected readonly intervalMax = INTERVAL_MAX;
   protected readonly label = blockLabel;

@@ -89,9 +89,23 @@ export interface CarouselBlock extends BlockBase {
   interval: number;
 }
 
+/** Public calendar with the nightly price and the quote (F004). */
+export interface AvailabilityBlock extends BlockBase {
+  type: 'availability';
+  /** Months side by side on a computer (1 to 3). */
+  months: number;
+}
+
 /** A block with its texts already resolved in the page language by the API. */
 export type PublicBlock =
-  HeroBlock | TextBlock | TextImageBlock | ColumnsBlock | GalleryBlock | ImageBlock | CarouselBlock;
+  | HeroBlock
+  | TextBlock
+  | TextImageBlock
+  | ColumnsBlock
+  | GalleryBlock
+  | ImageBlock
+  | CarouselBlock
+  | AvailabilityBlock;
 
 export interface PublicPage {
   lang: Lang;
