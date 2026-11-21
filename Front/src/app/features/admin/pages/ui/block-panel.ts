@@ -12,7 +12,7 @@ import { thumbnailUrl } from '../../media/data-access/media.api';
 import { Media } from '../../media/data-access/media.models';
 import { MediaStore } from '../../media/data-access/media.store';
 import { MediaPickerDialog } from '../../media/ui/media-picker-dialog';
-import { Choice, ChoiceGroup } from './choice-group';
+import { Choice, ChoiceGroup } from '../../../../shared/choice/choice-group';
 
 const ALIGNS: readonly Choice<'left' | 'center' | 'right'>[] = [
   { value: 'left', label: 'Gauche' },

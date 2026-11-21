@@ -45,6 +45,14 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.623 0.214 259.815);
+  /* Admin calendar (F005): private occupancy (family, private event). */
+  --private: oklch(0.558 0.18 303);
+  --private-foreground: oklch(0.985 0 0);
+}
+
+@theme inline {
+  --color-private: var(--private);
+  --color-private-foreground: var(--private-foreground);
 }
 
 @layer base {
