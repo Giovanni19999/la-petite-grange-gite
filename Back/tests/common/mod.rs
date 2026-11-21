@@ -72,7 +72,7 @@ impl TestApp {
             public_url: "/uploads".to_owned(),
         };
         let mut state =
-            wiring::app_state(&pool, policy, throttle, media_dir.path(), media).unwrap();
+            wiring::app_state(&pool, policy, throttle, media_dir.path(), media, 400).unwrap();
         state.serve_media_dir = Some(media_dir.path().join("public"));
 
         Self {

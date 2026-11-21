@@ -12,6 +12,7 @@ use sqlx::MySqlPool;
 use crate::app_state::AppState;
 use crate::application::admin_accounts::AdminAccounts;
 use crate::application::auth::{AuthPorts, AuthService, LoginThrottle};
+use crate::application::calendar::{CalendarPorts, CalendarService, NoStays};
 use crate::application::media::{MediaPorts, MediaService, MediaSettings};
 use crate::application::pages::PageService;
 use crate::config::Config;
@@ -19,6 +20,7 @@ use crate::domain::auth::SessionPolicy;
 use crate::infrastructure::auth::{
     Argon2Hasher, MariaDbSessions, MariaDbUsers, OsRandom, SystemClock,
 };
+use crate::infrastructure::calendar::{MariaDbBlockedPeriods, MariaDbCottages};
 use crate::infrastructure::images::WebpImageProcessor;
 use crate::infrastructure::mariadb::{MariaDbProbe, lazy_pool, migrate};
 use crate::infrastructure::media::MariaDbMedia;
@@ -78,6 +80,7 @@ impl Infrastructure {
             self.config.login_throttle,
             &self.config.media_dir,
             self.config.media.clone(),
+            self.config.availability_max_days,
         )?;
         state.trust_proxy_headers = self.config.trust_proxy_headers;
         if self.config.serve_media_files {
@@ -155,6 +158,21 @@ pub fn media_service(
     ))
 }
 
+/// Builds the calendar service backed by `MariaDB`. Stays (bookings, holds) do not exist yet:
+/// F007 and F014 replace [`NoStays`].
+#[must_use]
+pub fn calendar_service(pool: &MySqlPool, availability_max_days: u32) -> CalendarService {
+    CalendarService::new(
+        CalendarPorts {
+            cottages: Arc::new(MariaDbCottages::new(pool.clone())),
+            periods: Arc::new(MariaDbBlockedPeriods::new(pool.clone())),
+            stays: Arc::new(NoStays),
+            clock: Arc::new(SystemClock),
+        },
+        availability_max_days,
+    )
+}
+
 /// Builds the full application state.
 ///
 /// # Errors
@@ -166,6 +184,7 @@ pub fn app_state(
     throttle: LoginThrottle,
     media_dir: &Path,
     media_settings: MediaSettings,
+    availability_max_days: u32,
 ) -> anyhow::Result<AppState> {
     let media = Arc::new(media_service(pool, media_dir, media_settings)?);
     Ok(AppState {
@@ -177,6 +196,7 @@ pub fn app_state(
             media.clone(),
         )),
         media,
+        calendar: Arc::new(calendar_service(pool, availability_max_days)),
         serve_media_dir: None,
         trust_proxy_headers: false,
     })
