@@ -2,7 +2,7 @@
 id: F023
 title: "Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog)"
 status: implemented
-version: 2
+version: 3
 adr: [ADR-0009, ADR-0015, ADR-0004, ADR-0013]
 ---
 
@@ -19,7 +19,7 @@ so that I can update texts, images and layout myself, on a computer or on my pho
 * The editor uses the page API of F002 only (no new endpoint): list, create, delete, get, save draft, summary of changes, publish, versions, restore.
 * **Pages list** (`/admin/pages`): every page with its French title, slug, a "home" marker, its last publication date and a "not published" marker (draft different from the published page, or never published). The owner creates a page (French title and slug required) and deletes a page after confirmation; the home page cannot be deleted.
 * **Editor** (`/admin/pages/:id`): a live preview of the draft drawn with the **same block components as the public site**, and a panel to edit the selected block (side panel on wide screens, bottom drawer on phones).
-* **Blocks**: add (a "+" between blocks opens an illustrated choice of the F002 block types), select, edit, duplicate, delete (after confirmation), move with a drag handle and with up / down buttons (keyboard accessible). A new block starts with sensible empty content and default settings.
+* **Blocks**: add (a "+" between blocks opens an illustrated choice of the F002 block types), select, edit, duplicate, delete (after confirmation), move with a drag handle and with up / down buttons (keyboard accessible). On a phone, the block drawer also offers move up, move down, duplicate and delete; the action bar of a block that is not selected cannot be touched while it is invisible. A new block starts with sensible empty content and default settings.
 * **Block panel**: the block's texts in the current language and its settings (F002 options and common settings: visible, background, spacing, hide on mobile). Rich text uses the Tiptap editor limited to the formats the API keeps (ADR-0015). Image fields show a placeholder until the media library (F003).
 * **Languages**: a FR / EN switch changes the language of the texts being edited and of the preview; layout and settings are shared by both languages. An empty English text shows the French one greyed out in the preview (the public fallback) and is marked "not translated" in the panel.
 * **Page settings** (dialog): slug, title and meta description per language, shown in the menu, menu position.
@@ -126,6 +126,7 @@ Feature: Visual page editor
     Given a 360 px wide screen
     When the owner edits a block
     Then the block panel opens as a bottom drawer
+    And the drawer offers move up, move down, duplicate and delete for that block
     And every action of the editor can be done with the keyboard
 ```
 
@@ -158,3 +159,4 @@ Feature: Visual page editor
 
 * v1 (2026-11-20): first version.
 * v2 (2026-11-21): "hide on mobile" blocks stay shown (greyed out, badge) in the phone preview and when editing on a phone, at the owners' request; they could not be edited from a phone.
+* v3 (2026-11-21): block actions (move, duplicate, delete) in the phone drawer, at the owners' request; they were hidden behind the drawer on a phone.
