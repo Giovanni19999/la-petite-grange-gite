@@ -29,13 +29,31 @@ export interface StayRequest {
   departure: IsoDate;
   adults: number;
   children: number;
+  /** Ids of the ticked options (F026). */
+  options: number[];
+  /** Language of the names of the promotion and options. */
+  lang: 'fr' | 'en';
+}
+
+/** An option offered for the stay, with its price for this stay (0: offered). */
+export interface QuotedOption {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  selected: boolean;
 }
 
 /** Exact quote, computed by the API only (amounts in cents). */
 export interface Quote {
   nights: number;
   nights_total: number;
+  /** Best promotion that applies (F026), with its discount on the nights. */
+  promotion: { name: string; discount: number } | null;
   cleaning_fee: number;
+  /** Options offered for this stay. */
+  options: QuotedOption[];
+  options_total: number;
   stay_total: number;
   deposit: number;
   balance: number;

@@ -95,11 +95,21 @@ describe('F004 availability block', () => {
     await type('arrival', arrival);
     await type('departure', departure);
     const request = http.expectOne('/api/quote');
-    expect(request.request.body).toEqual({ arrival, departure, adults: 2, children: 0 });
+    expect(request.request.body).toEqual({
+      arrival,
+      departure,
+      adults: 2,
+      children: 0,
+      options: [],
+      lang: 'fr',
+    });
     request.flush({
       nights: 3,
       nights_total: 30_000,
+      promotion: null,
       cleaning_fee: 6_000,
+      options: [],
+      options_total: 0,
       stay_total: 36_000,
       deposit: 36_000,
       balance: 0,
@@ -114,6 +124,56 @@ describe('F004 availability block', () => {
     expect(root().querySelector('[data-testid="stay-total"]')!.textContent).toMatch(/360/);
     expect(quote).toContain('La totalité est due à la réservation.');
     expect(root().querySelector('[data-testid="tourist-tax"]')!.textContent).toMatch(/11,22/);
+  });
+
+  it('F026-S01 F026-S04 shows the promotion and lets the visitor tick options', async () => {
+    await setup();
+    const arrival = addDays(TODAY, 5);
+    const departure = addDays(TODAY, 12);
+    await type('arrival', arrival);
+    await type('departure', departure);
+    const quoteOf = (selected: boolean) => ({
+      nights: 7,
+      nights_total: 70_000,
+      promotion: { name: 'Semaine', discount: 7_000 },
+      cleaning_fee: 6_000,
+      options: [
+        {
+          id: 4,
+          name: 'Linge de maison',
+          description: 'Draps et serviettes',
+          price: 3_000,
+          selected,
+        },
+        { id: 5, name: 'Lit bébé', description: '', price: 0, selected: false },
+      ],
+      options_total: selected ? 3_000 : 0,
+      stay_total: selected ? 72_000 : 69_000,
+      deposit: 36_000,
+      balance: 36_000,
+      balance_due: addDays(arrival, -30),
+      tourist_tax: 0,
+    });
+    http.expectOne('/api/quote').flush(quoteOf(false));
+    await settle();
+    expect(root().querySelector('[data-testid="promotion"]')!.textContent).toContain(
+      'Promotion « Semaine »',
+    );
+    const options = root().querySelector('[data-testid="options"]')!;
+    expect(options.textContent).toContain('Lit bébé');
+    expect(options.textContent).toContain('offert');
+
+    options.querySelector<HTMLInputElement>('[data-option="4"]')!.click();
+    await settle();
+    const request = http.expectOne('/api/quote');
+    expect(request.request.body.options).toEqual([4]);
+    request.flush(quoteOf(true));
+    await settle();
+    expect(root().querySelector('[data-testid="stay-total"]')!.textContent).toMatch(/720/);
+
+    // Other dates: the ticked options are cleared.
+    await type('departure', addDays(TODAY, 13));
+    expect(http.expectOne('/api/quote').request.body.options).toEqual([]);
   });
 
   it('F004-S04 refusals from the API are shown', async () => {

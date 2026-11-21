@@ -39,6 +39,10 @@ const TEXT = {
     pickDeparture: 'Choisissez maintenant votre date de départ.',
     nights: (n: number) => (n > 1 ? `${n} nuits` : '1 nuit'),
     cleaning: 'Ménage',
+    promotion: (name: string) => `Promotion « ${name} »`,
+    options: 'Options',
+    chosenOptions: 'Options choisies',
+    offered: 'offert',
     total: 'Total du séjour',
     deposit: 'Acompte à la réservation',
     balance: (date: string) => `Solde à régler avant le ${date}`,
@@ -65,6 +69,10 @@ const TEXT = {
     pickDeparture: 'Now choose your departure date.',
     nights: (n: number) => (n > 1 ? `${n} nights` : '1 night'),
     cleaning: 'Cleaning',
+    promotion: (name: string) => `Offer “${name}”`,
+    options: 'Extras',
+    chosenOptions: 'Chosen extras',
+    offered: 'free',
     total: 'Stay total',
     deposit: 'Deposit at booking',
     balance: (date: string) => `Balance due by ${date}`,
@@ -252,8 +260,16 @@ function firstOf({ year, month }: Month): IsoDate {
           >
             <dt>{{ t.nights(q.nights) }}</dt>
             <dd class="text-right">{{ money(q.nights_total) }}</dd>
+            @if (q.promotion; as promotion) {
+              <dt data-testid="promotion">{{ t.promotion(promotion.name) }}</dt>
+              <dd class="text-right">−{{ money(promotion.discount) }}</dd>
+            }
             <dt>{{ t.cleaning }}</dt>
             <dd class="text-right">{{ money(q.cleaning_fee) }}</dd>
+            @if (q.options_total > 0) {
+              <dt>{{ t.chosenOptions }}</dt>
+              <dd class="text-right">{{ money(q.options_total) }}</dd>
+            }
             <dt class="font-semibold">{{ t.total }}</dt>
             <dd class="text-right font-semibold" data-testid="stay-total">
               {{ money(q.stay_total) }}
@@ -273,6 +289,31 @@ function firstOf({ year, month }: Month): IsoDate {
               </dd>
             }
           </dl>
+          @if (q.options.length > 0) {
+            <fieldset class="mt-3 flex max-w-md flex-col gap-2 text-sm" data-testid="options">
+              <legend class="mb-1 font-medium">{{ t.options }}</legend>
+              @for (option of q.options; track option.id) {
+                <label class="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    class="mt-0.5 size-4 accent-primary"
+                    [checked]="option.selected"
+                    [attr.data-option]="option.id"
+                    (change)="toggleOption(option.id)"
+                  />
+                  <span class="flex-1">
+                    {{ option.name }}
+                    @if (option.description) {
+                      <span class="block text-xs text-muted-foreground">{{
+                        option.description
+                      }}</span>
+                    }
+                  </span>
+                  <span>{{ option.price === 0 ? t.offered : money(option.price) }}</span>
+                </label>
+              }
+            </fieldset>
+          }
         } @else if (quoteError()) {
           <p class="text-sm text-destructive" role="alert">{{ t.error }}</p>
         } @else {
@@ -313,6 +354,8 @@ export class AvailabilityBlockView {
   protected readonly departure = signal<IsoDate | null>(null);
   protected readonly adults = signal(2);
   protected readonly children = signal(0);
+  /** Ticked options (F026); cleared when the dates change. */
+  protected readonly selectedOptions = signal<number[]>([]);
   protected readonly quote = signal<Quote | null>(null);
   protected readonly refusals = signal<string[]>([]);
   protected readonly quoteError = signal(false);
@@ -343,9 +386,10 @@ export class AvailabilityBlockView {
       const departure = this.departure();
       const adults = this.adults();
       const children = this.children();
+      const options = this.selectedOptions();
       untracked(() => {
         if (arrival && departure) {
-          void this.ask(arrival, departure, adults, children);
+          void this.ask(arrival, departure, adults, children, options);
         } else {
           this.quote.set(null);
           this.refusals.set([]);
@@ -422,6 +466,7 @@ export class AvailabilityBlockView {
     if (!this.selectable(day)) {
       return;
     }
+    this.selectedOptions.set([]);
     const arrival = this.arrival();
     if (arrival && !this.departure() && day > arrival) {
       this.departure.set(day);
@@ -432,6 +477,7 @@ export class AvailabilityBlockView {
   }
 
   protected typeArrival(value: string): void {
+    this.selectedOptions.set([]);
     this.arrival.set(value || null);
     const departure = this.departure();
     if (value && departure && departure <= value) {
@@ -443,7 +489,14 @@ export class AvailabilityBlockView {
   }
 
   protected typeDeparture(value: string): void {
+    this.selectedOptions.set([]);
     this.departure.set(value || null);
+  }
+
+  protected toggleOption(id: number): void {
+    this.selectedOptions.update((ids) =>
+      ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id],
+    );
   }
 
   protected move(delta: number): void {
@@ -517,12 +570,15 @@ export class AvailabilityBlockView {
     departure: IsoDate,
     adults: number,
     children: number,
+    options: number[],
   ): Promise<void> {
     if (departure <= arrival || nightsBetween(arrival, departure) < 1) {
       return;
     }
     try {
-      const quote = await firstValueFrom(this.api.quote({ arrival, departure, adults, children }));
+      const quote = await firstValueFrom(
+        this.api.quote({ arrival, departure, adults, children, options, lang: this.lang }),
+      );
       if (this.arrival() === arrival && this.departure() === departure) {
         this.quote.set(quote);
         this.refusals.set([]);
