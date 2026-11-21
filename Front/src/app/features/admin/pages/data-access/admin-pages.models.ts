@@ -77,6 +77,11 @@ export interface DraftCarouselBlock extends DraftBlockBase {
   interval: number;
 }
 
+export interface DraftAvailabilityBlock extends DraftBlockBase {
+  type: 'availability';
+  months: number;
+}
+
 /** A block as stored in the draft: texts in both languages. */
 export type DraftBlock =
   | DraftHeroBlock
@@ -85,7 +90,8 @@ export type DraftBlock =
   | DraftColumnsBlock
   | DraftGalleryBlock
   | DraftImageBlock
-  | DraftCarouselBlock;
+  | DraftCarouselBlock
+  | DraftAvailabilityBlock;
 
 export type BlockType = DraftBlock['type'];
 

@@ -22,6 +22,11 @@ export const BLOCK_TYPES: readonly { type: BlockType; label: string; description
   { type: 'gallery', label: 'Galerie', description: 'Grille de photos' },
   { type: 'image', label: 'Image', description: 'Une photo seule avec sa légende' },
   { type: 'carousel', label: 'Carrousel', description: 'Photos qui défilent' },
+  {
+    type: 'availability',
+    label: 'Disponibilités',
+    description: 'Calendrier, prix par nuit et devis',
+  },
 ];
 
 /** Seconds between two photos of a carousel, by default (F024). */
@@ -106,6 +111,8 @@ export function newBlock(type: BlockType, taken: ReadonlySet<string>): DraftBloc
         autoplay: false,
         interval: DEFAULT_CAROUSEL_INTERVAL,
       };
+    case 'availability':
+      return { ...base, type, months: 2 };
   }
 }
 
@@ -264,6 +271,9 @@ export function toPreviewBlock(
         autoplay: false,
         interval: block.interval,
       };
+      break;
+    case 'availability':
+      preview = { ...common, type: 'availability', months: block.months };
       break;
   }
   return fallback.length > 0 ? { ...preview, fallback } : preview;

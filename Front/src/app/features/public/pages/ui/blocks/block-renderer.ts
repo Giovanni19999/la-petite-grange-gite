@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 import { PublicBlock } from '../../data-access/pages.models';
+import { AvailabilityBlockView } from './availability-block';
 import { BlockFrame } from './block-frame';
 import {
   CarouselBlockView,
@@ -28,6 +29,7 @@ import {
     GalleryBlockView,
     ImageBlockView,
     CarouselBlockView,
+    AvailabilityBlockView,
   ],
   template: `
     @let b = block();
@@ -61,6 +63,9 @@ import {
           }
           @case ('carousel') {
             <app-carousel-block [block]="b" [priority]="priority()" />
+          }
+          @case ('availability') {
+            <app-availability-block [block]="b" />
           }
         }
       </app-block-frame>
