@@ -1,7 +1,7 @@
 ---
 id: F004
 title: "Availability calendar with the nightly price under each free date"
-status: frozen
+status: implemented
 version: 2
 adr: [ADR-0005, ADR-0008, ADR-0009, ADR-0010]
 ---
@@ -108,7 +108,17 @@ Feature: Availability calendar
 
 | Scenario | Test |
 |---|---|
-| F004-S01 → S10 | to be filled in when implemented |
+| F004-S01 | `Back/tests/quote.rs::f004_s01_s02_s08_*`, `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
+| F004-S02 | `Back/tests/quote.rs::f004_s01_s02_s08_*`, `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
+| F004-S03 | `Back/src/domain/quote.rs::tests::f004_s03_*`, `Back/src/domain/house_rules.rs::tests::f004_s03_*`, `Back/tests/quote.rs::f004_s03_exact_quote`, `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
+| F004-S04 | `Back/src/domain/quote.rs::tests::f004_s04_*`, `Back/tests/quote.rs::f004_s04_*`, `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
+| F004-S05 | `Back/src/domain/quote.rs::tests::f004_s05_*`, `Back/tests/quote.rs::f004_s05_*` |
+| F004-S06 | `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
+| F004-S07 | `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` (swipe checked by hand on a phone) |
+| F004-S08 | `Back/tests/quote.rs::f004_s01_s02_s08_*` (no cache: every request reads the database) |
+| F004-S09 | `Back/src/domain/house_rules.rs::tests::f004_s09_*`, `Back/tests/quote.rs::f004_s09_*`, `Back/tests/quote.rs::f004_house_rules_are_admin_only`, `Front/src/app/features/admin/house-rules/house-rules.page.spec.ts` |
+| F004-S10 | `Back/src/domain/house_rules.rs::tests::f004_s10_*`, `Back/src/domain/quote.rs::tests::f004_s10_*`, `Back/tests/quote.rs::f004_s10_*` |
+| "Disponibilités" block | `Back/src/domain/page.rs::tests::f004_availability_block` |
 
 ## Changelog
 
