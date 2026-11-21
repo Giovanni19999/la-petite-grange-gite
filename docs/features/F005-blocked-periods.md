@@ -1,7 +1,7 @@
 ---
 id: F005
 title: "Blocked periods: closure, family, private event"
-status: frozen
+status: implemented
 version: 1
 adr: [ADR-0002, ADR-0003, ADR-0007, ADR-0010, ADR-0011]
 ---
@@ -100,7 +100,16 @@ Feature: Blocked periods
 
 | Scenario | Test |
 |---|---|
-| F005-S01 → S10 | to be filled in when implemented |
+| F005-S01 | `Back/src/domain/calendar.rs::tests::f005_s01_*`, `Back/src/application/calendar_tests.rs::f005_s01_*`, `Back/tests/calendar.rs::f005_s01_close_dates`, `Front/src/app/features/admin/closures/closures.page.spec.ts` |
+| F005-S02 | `Back/src/domain/calendar.rs::tests::f005_s02_*`, `Back/tests/calendar.rs::f005_s02_family_details_never_public`, `Front/src/app/features/admin/closures/closures.page.spec.ts` |
+| F005-S03 | `Back/src/domain/calendar.rs::tests::f005_s03_*`, `Back/tests/calendar.rs::f005_s03_label_required`, `Front/src/app/features/admin/closures/closures.page.spec.ts` |
+| F005-S04 | `Back/src/domain/calendar.rs::tests::f005_s04_*`, `Back/src/application/calendar_tests.rs::f005_s04_*` (stays come from a fake until F007 / F014) |
+| F005-S05 | `Back/src/domain/calendar.rs::tests::f005_s05_*`, `Back/src/application/calendar_tests.rs::f005_s05_*`, `Back/tests/calendar.rs::f005_s05_s06_*`, `Front/src/app/shared/dates/date-range-field.spec.ts` |
+| F005-S06 | `Back/src/domain/calendar.rs::tests::f005_s06_*`, `Back/src/application/calendar_tests.rs::f005_s06_*`, `Back/tests/calendar.rs::f005_s05_s06_*`, `Front/src/app/features/admin/closures/closures.page.spec.ts` |
+| F005-S07 | `Back/src/application/calendar_tests.rs::f005_s07_*`, `Back/tests/calendar.rs::f005_s07_*`, `Front/src/app/features/admin/closures/closures.page.spec.ts` |
+| F005-S08 | `Back/src/domain/calendar.rs::tests::f005_s08_*`, `Back/src/application/calendar_tests.rs::f005_s08_*`, `Back/tests/calendar.rs::f005_s08_booking_horizon` |
+| F005-S09 | `Front/src/app/shared/dates/date-range-field.spec.ts` |
+| F005-S10 | `Back/tests/calendar.rs::f005_s10_admin_only` |
 
 ## Changelog
 
