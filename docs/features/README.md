@@ -30,4 +30,4 @@ One sheet per feature, using the [template](000-template.md). A feature is coded
 | [F023](F023-page-editor.md) | Visual page editor in the admin (preview, drag and drop, FR/EN, publish dialog) | implemented | 0009, 0015 |
 | [F024](F024-image-and-carousel-blocks.md) | Fixed image or carousel: hero carousel, image and carousel blocks | implemented | 0009, 0017 |
 | [F025](F025-email-and-sms-sending.md) | Email and SMS sending: SMTP server and SMS provider set by the owners | draft | 0002, 0010 |
-| [F026](F026-promotions-and-options-by-stay-length.md) | Promotions and options offered by stay length (optional minimum and maximum nights) | draft | 0008, 0010 |
+| [F026](F026-promotions-and-options-by-stay-length.md) | Promotions and options offered by stay length (optional minimum and maximum nights) | frozen | 0008, 0010 |
