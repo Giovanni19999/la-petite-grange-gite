@@ -1,7 +1,7 @@
 ---
 id: F025
 title: "Email and SMS sending: SMTP server and SMS provider set by the owners"
-status: frozen
+status: implemented
 version: 2
 adr: [ADR-0002, ADR-0010, ADR-0019]
 ---
@@ -84,7 +84,14 @@ Feature: Email and SMS sending
 
 | Scenario | Test |
 |---|---|
-| F025-S01 → S07 | to be filled in when implemented |
+| F025-S01 | `Back/src/application/messaging_tests.rs::f025_s01_*`, `Back/tests/messaging.rs::f025_s01_*` (Mailpit) |
+| F025-S02 | `Back/src/domain/messaging.rs::tests::f025_s02_*`, `Back/src/application/messaging_tests.rs::f025_s02_*`, `Back/tests/messaging.rs::f025_s02_*`, `Front/src/app/features/admin/messaging/messaging.page.spec.ts` |
+| F025-S03 | `Back/src/application/messaging_tests.rs::f025_s03_*`, `Back/tests/messaging.rs::f025_s03_*` (Mailpit with authentication), `Front/src/app/features/admin/messaging/messaging.page.spec.ts` |
+| F025-S04 | `Back/src/config.rs::tests::f025_brevo_needs_its_api_key`, `Back/tests/messaging.rs::f025_s04_*` |
+| F025-S05 | `Back/src/application/messaging_tests.rs::f025_s05_*`, `Back/tests/messaging.rs::f025_s05_*` (fake Brevo server) |
+| F025-S06 | `Back/src/application/messaging_tests.rs::f025_s06_*`, `Back/tests/messaging.rs::f025_s06_*` |
+| F025-S07 | `Back/src/domain/messaging.rs::tests::f025_s07_*`, `Back/src/application/messaging_tests.rs::f025_s07_*`, `Back/tests/messaging.rs::f025_s07_*`, `Front/src/app/features/admin/messaging/messaging.page.spec.ts` |
+| Admin only | `Back/tests/messaging.rs::f025_sending_is_admin_only` |
 
 ## Changelog
 
