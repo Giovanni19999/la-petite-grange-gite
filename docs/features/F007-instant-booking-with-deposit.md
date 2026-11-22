@@ -1,7 +1,7 @@
 ---
 id: F007
 title: "Direct booking confirmed at once, deposit paid offline, online payment prepared"
-status: frozen
+status: implemented
 version: 2
 adr: [ADR-0005, ADR-0006, ADR-0010, ADR-0015, ADR-0019, ADR-0020, ADR-0021]
 ---
@@ -160,7 +160,22 @@ Feature: Direct booking without online payment
 
 | Scenario | Test |
 |---|---|
-| F007-S01 → S15 | to be filled in when implemented |
+| F007-S01 | `Back/src/domain/booking.rs::tests::f007_s01_*`, `Back/tests/bookings.rs::f007_s01_s02_s04_*`, `Front/src/app/features/public/booking/booking.page.spec.ts`, `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
+| F007-S02 | `Back/tests/bookings.rs::f007_s01_s02_s04_*`, `Back/tests/bookings.rs::f007_attachments_are_kept_in_the_queue` |
+| F007-S03 | `Back/tests/bookings.rs::f007_s03_fixed_deposit` |
+| F007-S04 | `Back/tests/bookings.rs::f007_s01_s02_s04_*` |
+| F007-S05 | `Back/tests/bookings.rs::f007_s05_*` (two concurrent bookings) |
+| F007-S06 | `Back/tests/bookings.rs::f007_s06_*` |
+| F007-S07 | `Back/tests/bookings.rs::f007_s07_*` |
+| F007-S08 | `Back/src/domain/booking.rs::tests::f007_s08_*`, `Back/tests/bookings.rs::f007_s08_*`, `Front/src/app/features/admin/bookings/bookings.page.spec.ts` |
+| F007-S09 | `Back/tests/bookings.rs::f007_s09_f026_s05_*` (also F026-S05), `Front/src/app/features/admin/bookings/bookings.page.spec.ts` |
+| F007-S10 | `Back/tests/bookings.rs::f007_s10_*`, `Front/src/app/features/public/booking/booking.page.spec.ts`, `Front/src/app/features/admin/house-rules/house-rules.page.spec.ts` |
+| F007-S11 | `Back/tests/bookings.rs::f007_s11_*`, `Front/src/app/features/admin/bookings/bookings.page.spec.ts` |
+| F007-S12 | `Back/src/domain/templates.rs::tests`, `Back/src/application/templates.rs::tests`, `Back/tests/bookings.rs::f007_s12_*`, `Front/src/app/features/admin/templates/templates.page.spec.ts` |
+| F007-S13 | `Back/src/application/templates.rs::tests::f007_s13_*`, `Back/tests/bookings.rs::f007_s13_*`, `Front/src/app/features/admin/templates/templates.page.spec.ts` |
+| F007-S14 | `Back/tests/bookings.rs::f007_s14_*`, `Front/src/app/features/public/booking/booking.page.spec.ts` |
+| F007-S15 | `Back/tests/bookings.rs::f007_s15_*` |
+| Robots, admin only, payment instructions | `Back/tests/bookings.rs::f007_robots_and_strangers_get_nothing`, `Back/tests/bookings.rs::f007_payment_instructions_and_document`, `Back/src/infrastructure/documents.rs::tests`, `Back/src/config.rs::tests::f007_*` |
 
 ## Changelog
 

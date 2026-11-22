@@ -74,7 +74,7 @@ Feature: Promotions and options by stay length
 | F026-S03 | `Back/src/domain/offers.rs::tests::f026_s03_*`, `Back/tests/offers.rs::f026_s01_s03_*` |
 | F026-S04 | `Back/src/domain/offers.rs::tests::f026_s04_*`, `Back/src/domain/quote.rs::tests::f026_s01_s04_*`, `Back/tests/offers.rs::f026_s04_*`, `Front/src/app/features/admin/offers/offers.page.spec.ts`, `Front/src/app/features/public/pages/ui/blocks/availability-block.spec.ts` |
 | Management, history, admin only | `Back/src/domain/offers.rs::tests::f026_offers_are_validated`, `Back/tests/offers.rs::f026_owners_manage_offers_with_history`, `Back/tests/offers.rs::f026_offers_are_admin_only`, `Front/src/app/features/admin/offers/offers.page.spec.ts` |
-| F026-S05 | with the booking (F007) |
+| F026-S05 | `Back/tests/bookings.rs::f007_s09_f026_s05_*` |
 
 ## Changelog
 
