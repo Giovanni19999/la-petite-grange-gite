@@ -50,6 +50,11 @@ export const adminRoutes: Routes = [
         loadComponent: () => import('./house-rules/house-rules.page').then((m) => m.HouseRulesPage),
       },
       {
+        path: 'messages',
+        title: 'Envoi des messages - La Petite Grange',
+        loadComponent: () => import('./messaging/messaging.page').then((m) => m.MessagingPage),
+      },
+      {
         path: 'medias',
         title: 'Médiathèque - La Petite Grange',
         loadComponent: () => import('./media/media-library.page').then((m) => m.MediaLibraryPage),
