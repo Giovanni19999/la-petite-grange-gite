@@ -20,7 +20,10 @@ async fn main() -> anyhow::Result<()> {
     match cli.command.unwrap_or(Command::Serve) {
         Command::Serve => {
             let infrastructure = Infrastructure::start(&config, Migrations::BestEffort).await?;
-            let result = server::serve(config.bind_addr, infrastructure.app_state()?).await;
+            let state = infrastructure.app_state()?;
+            let worker = infrastructure.start_message_worker(&state);
+            let result = server::serve(config.bind_addr, state).await;
+            worker.abort();
             infrastructure.shutdown().await;
             result
         }

@@ -5,6 +5,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use sqlx::MySqlPool;
@@ -15,11 +16,12 @@ use crate::application::auth::{AuthPorts, AuthService, LoginThrottle};
 use crate::application::calendar::{CalendarPorts, CalendarService, NoStays};
 use crate::application::house_rules::HouseRulesService;
 use crate::application::media::{MediaPorts, MediaService, MediaSettings};
+use crate::application::messaging::{Mailer, MessagingService, SmsSender};
 use crate::application::offers::OffersService;
 use crate::application::pages::PageService;
 use crate::application::pricing::{PricingPorts, PricingService};
 use crate::application::quote::QuoteService;
-use crate::config::Config;
+use crate::config::{Config, SmsProvider};
 use crate::domain::auth::SessionPolicy;
 use crate::infrastructure::auth::{
     Argon2Hasher, MariaDbSessions, MariaDbUsers, OsRandom, SystemClock,
@@ -30,9 +32,45 @@ use crate::infrastructure::images::WebpImageProcessor;
 use crate::infrastructure::mariadb::{MariaDbProbe, lazy_pool, migrate};
 use crate::infrastructure::media::MariaDbMedia;
 use crate::infrastructure::media_files::FsMediaFiles;
+use crate::infrastructure::messaging::MariaDbMessages;
 use crate::infrastructure::offers::MariaDbOffers;
 use crate::infrastructure::pages::MariaDbPages;
 use crate::infrastructure::pricing::MariaDbPricing;
+use crate::infrastructure::sms::{BrevoSms, NoSms};
+use crate::infrastructure::smtp::SmtpMailer;
+
+/// Providers of the email and SMS sending (F025, ADR-0019).
+#[derive(Clone)]
+pub struct Senders {
+    pub mailer: Arc<dyn Mailer>,
+    pub sms: Arc<dyn SmsSender>,
+}
+
+impl std::fmt::Debug for Senders {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Senders").finish_non_exhaustive()
+    }
+}
+
+impl Senders {
+    /// SMTP with the password of the environment, and the SMS provider of the configuration.
+    ///
+    /// # Errors
+    ///
+    /// The Brevo HTTP client cannot be built.
+    pub fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let sms: Arc<dyn SmsSender> = match &config.messaging.sms {
+            SmsProvider::None => Arc::new(NoSms),
+            SmsProvider::Brevo { api_key, base_url } => {
+                Arc::new(BrevoSms::new(base_url, api_key.clone())?)
+            }
+        };
+        Ok(Self {
+            mailer: Arc::new(SmtpMailer::new(config.messaging.smtp_password.clone())),
+            sms,
+        })
+    }
+}
 
 /// What to do when the migrations cannot be applied at startup.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,12 +126,22 @@ impl Infrastructure {
             &self.config.media_dir,
             self.config.media.clone(),
             self.config.availability_max_days,
+            Senders::from_config(&self.config)?,
         )?;
         state.trust_proxy_headers = self.config.trust_proxy_headers;
         if self.config.serve_media_files {
             state.serve_media_dir = Some(self.config.media_dir.join("public"));
         }
         Ok(state)
+    }
+
+    /// Starts the background task that sends the queued messages (F025, ADR-0019).
+    #[must_use]
+    pub fn start_message_worker(&self, state: &AppState) -> tokio::task::JoinHandle<()> {
+        spawn_message_worker(
+            state.messaging.clone(),
+            Duration::from_secs(u64::from(self.config.messaging.worker_interval_seconds)),
+        )
     }
 
     /// Use case of the command-line adapter.
@@ -180,6 +228,30 @@ pub fn calendar_service(pool: &MySqlPool, availability_max_days: u32) -> Calenda
     )
 }
 
+/// Background task: marks the messages interrupted by a stop `to_check`, then sends the due
+/// messages every `interval`, until aborted.
+#[must_use]
+pub fn spawn_message_worker(
+    messaging: Arc<MessagingService>,
+    interval: Duration,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        match messaging.recover_interrupted().await {
+            Ok(0) => {}
+            Ok(count) => tracing::warn!(count, "interrupted messages marked to check"),
+            Err(error) => tracing::error!(%error, "cannot recover the interrupted messages"),
+        }
+        let mut ticker = tokio::time::interval(interval);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            if let Err(error) = messaging.process_due().await {
+                tracing::error!(%error, "message sending round failed");
+            }
+        }
+    })
+}
+
 /// Builds the full application state.
 ///
 /// # Errors
@@ -192,6 +264,7 @@ pub fn app_state(
     media_dir: &Path,
     media_settings: MediaSettings,
     availability_max_days: u32,
+    senders: Senders,
 ) -> anyhow::Result<AppState> {
     let media = Arc::new(media_service(pool, media_dir, media_settings)?);
     let calendar = Arc::new(calendar_service(pool, availability_max_days));
@@ -234,6 +307,12 @@ pub fn app_state(
         house_rules,
         offers,
         quotes,
+        messaging: Arc::new(MessagingService::new(
+            Arc::new(MariaDbMessages::new(pool.clone())),
+            senders.mailer,
+            senders.sms,
+            Arc::new(SystemClock),
+        )),
         serve_media_dir: None,
         trust_proxy_headers: false,
     })

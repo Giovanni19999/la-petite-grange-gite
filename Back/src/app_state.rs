@@ -9,6 +9,7 @@ use crate::application::calendar::CalendarService;
 use crate::application::health::DatabaseProbe;
 use crate::application::house_rules::HouseRulesService;
 use crate::application::media::MediaService;
+use crate::application::messaging::MessagingService;
 use crate::application::offers::OffersService;
 use crate::application::pages::PageService;
 use crate::application::pricing::PricingService;
@@ -26,6 +27,7 @@ pub struct AppState {
     pub house_rules: Arc<HouseRulesService>,
     pub offers: Arc<OffersService>,
     pub quotes: Arc<QuoteService>,
+    pub messaging: Arc<MessagingService>,
     /// Directory of the public media files, served by the API itself in development only
     /// (`SERVE_MEDIA_FILES`); in production Caddy serves them (ADR-0017).
     pub serve_media_dir: Option<PathBuf>,

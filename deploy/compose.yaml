@@ -35,6 +35,10 @@ services:
       TRUST_PROXY_HEADERS: "true"
       # Media library (F003, ADR-0017): files written by the API, served by Caddy.
       MEDIA_DIR: /data/media
+      # Email and SMS sending (F025, ADR-0019): only the secrets, the rest is on the admin screen.
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMS_PROVIDER: ${SMS_PROVIDER:-none}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
     volumes:
       - media:/data/media
     depends_on:
