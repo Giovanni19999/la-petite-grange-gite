@@ -30,7 +30,7 @@ Requirements: Rust (stable), Docker.
 ```bash
 cd Back
 cp .env.example .env        # then set your own passwords
-docker compose up -d        # local MariaDB
+docker compose up -d        # local MariaDB, and Mailpit for the emails (http://localhost:8025)
 cargo run
 curl http://127.0.0.1:8080/api/health
 ```
@@ -42,7 +42,7 @@ cd Back
 cargo run -- create-admin --email owner@example.test
 ```
 
-Tests and checks (the acceptance tests start a disposable MariaDB container, Docker required):
+Tests and checks (the acceptance tests start disposable MariaDB and Mailpit containers, Docker required):
 
 ```bash
 cd Back
