@@ -37,6 +37,7 @@ function calendarFor(from: IsoDate, to: IsoDate): PublicCalendar {
     children_under: 18,
     arrival_weekdays: [1, 2, 3, 4, 5, 6, 7],
     departure_weekdays: [1, 2, 3, 4, 5, 6, 7],
+    booking_open: true,
     nights,
   };
 }
@@ -124,6 +125,11 @@ describe('F004 availability block', () => {
     expect(root().querySelector('[data-testid="stay-total"]')!.textContent).toMatch(/360/);
     expect(quote).toContain('La totalité est due à la réservation.');
     expect(root().querySelector('[data-testid="tourist-tax"]')!.textContent).toMatch(/11,22/);
+    // F007: the quote leads to the booking page with the stay.
+    const book = root().querySelector<HTMLAnchorElement>('[data-testid="book"]')!;
+    expect(book.getAttribute('href')).toBe(
+      `/reserver?arrival=${arrival}&departure=${departure}&adults=2&children=0`,
+    );
   });
 
   it('F026-S01 F026-S04 shows the promotion and lets the visitor tick options', async () => {

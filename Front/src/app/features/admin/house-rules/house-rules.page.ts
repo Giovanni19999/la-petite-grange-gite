@@ -6,7 +6,8 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { firstValueFrom } from 'rxjs';
 
 import { Choice, ChoiceGroup } from '../../../shared/choice/choice-group';
-import { ApiErrorBody } from '../pages/data-access/admin-pages.models';
+import { AdminPagesApi } from '../pages/data-access/admin-pages.api';
+import { AdminPageSummary, ApiErrorBody } from '../pages/data-access/admin-pages.models';
 import {
   formatEuros,
   formatPercent,
@@ -14,6 +15,7 @@ import {
   parsePercent,
 } from '../prices/data-access/price-math';
 import { HouseRules, HouseRulesApi, RuleChangeEntry } from './data-access/house-rules.api';
+import { PaymentInfoSection } from './ui/payment-info-section';
 
 /** The form as typed (text, so that "1,70" can be typed). */
 interface RulesDraft {
@@ -30,6 +32,20 @@ interface RulesDraft {
   exemptUnder: string;
   horizonMonths: string;
   horizonUntil: string;
+  arrivalFrom: number;
+  departureBefore: number;
+  pets: boolean;
+  alertDays: string;
+  /** Id of the rental terms page, '' for none. */
+  termsPage: string;
+}
+
+/** Times of day by half hours, in minutes after midnight. */
+const TIMES: readonly number[] = Array.from({ length: 48 }, (_, index) => index * 30);
+
+/** Minutes after midnight → "16:00". */
+export function clockTime(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
 const WEEKDAYS: readonly { number: number; short: string; name: string }[] = [
@@ -62,6 +78,11 @@ function draftOf(rules: HouseRules): RulesDraft {
     exemptUnder: String(rules.tourist_tax.exempt_under),
     horizonMonths: String(rules.horizon.months),
     horizonUntil: rules.horizon.until ?? '',
+    arrivalFrom: rules.arrival_from,
+    departureBefore: rules.departure_before,
+    pets: rules.pets_allowed,
+    alertDays: String(rules.deposit_alert_days),
+    termsPage: rules.terms_page === null ? '' : String(rules.terms_page),
   };
 }
 
@@ -70,11 +91,12 @@ function whole(text: string): number | null {
   return /^\d+$/.test(text.trim()) ? Number(text.trim()) : null;
 }
 
-/** "Règles du gîte" (F004): the rules the quote depends on, with their history. */
+/** "Règles du gîte" (F004, F007): the rules the quote and the bookings depend on, with their
+ * history, and how to pay. */
 @Component({
   selector: 'app-house-rules-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, HlmButtonImports, ChoiceGroup],
+  imports: [DatePipe, RouterLink, HlmButtonImports, ChoiceGroup, PaymentInfoSection],
   template: `
     <section class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
       <div>
@@ -143,6 +165,51 @@ function whole(text: string): number | null {
           </fieldset>
 
           <fieldset class="flex flex-col gap-3 rounded-lg border p-4">
+            <legend class="px-1 font-semibold">Arrivée et départ</legend>
+            <div class="flex flex-wrap gap-6">
+              <label class="flex flex-col gap-1 text-sm">
+                Arrivée à partir de
+                <select
+                  #arrivalFrom
+                  class="h-9 w-28 rounded-md border border-input px-2"
+                  name="arrivalFrom"
+                  (change)="patch({ arrivalFrom: +arrivalFrom.value })"
+                >
+                  @for (time of times; track time) {
+                    <option [value]="time" [selected]="time === d.arrivalFrom">
+                      {{ clock(time) }}
+                    </option>
+                  }
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-sm">
+                Départ avant
+                <select
+                  #departureBefore
+                  class="h-9 w-28 rounded-md border border-input px-2"
+                  name="departureBefore"
+                  (change)="patch({ departureBefore: +departureBefore.value })"
+                >
+                  @for (time of times; track time) {
+                    <option [value]="time" [selected]="time === d.departureBefore">
+                      {{ clock(time) }}
+                    </option>
+                  }
+                </select>
+              </label>
+            </div>
+            <label class="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="pets"
+                [checked]="d.pets"
+                (change)="patch({ pets: !d.pets })"
+              />
+              Animaux acceptés
+            </label>
+          </fieldset>
+
+          <fieldset class="flex flex-col gap-3 rounded-lg border p-4">
             <legend class="px-1 font-semibold">Paiement</legend>
             <app-choice-group
               legend="Acompte à la réservation"
@@ -188,6 +255,17 @@ function whole(text: string): number | null {
                 (input)="patch({ balanceDays: balance.value })"
               />
             </label>
+            <label class="flex flex-col gap-1 text-sm">
+              Vous alerter si l'acompte n'est pas reçu après (jours)
+              <input
+                #alertDays
+                class="h-9 w-24 rounded-md border border-input px-2 text-right"
+                inputmode="numeric"
+                name="alertDays"
+                [value]="d.alertDays"
+                (input)="patch({ alertDays: alertDays.value })"
+              />
+            </label>
           </fieldset>
 
           <fieldset class="flex flex-col gap-3 rounded-lg border p-4">
@@ -231,6 +309,33 @@ function whole(text: string): number | null {
                 (input)="patch({ exemptUnder: exempt.value })"
               />
             </label>
+          </fieldset>
+
+          <fieldset class="flex flex-col gap-3 rounded-lg border p-4">
+            <legend class="px-1 font-semibold">Conditions de location</legend>
+            <label class="flex flex-col gap-1 text-sm">
+              Page du site qui contient les conditions (le voyageur doit les accepter)
+              <select
+                #terms
+                class="h-9 max-w-sm rounded-md border border-input px-2"
+                name="termsPage"
+                (change)="patch({ termsPage: terms.value })"
+              >
+                <option value="" [selected]="d.termsPage === ''">
+                  Aucune : la réservation en ligne est fermée
+                </option>
+                @for (page of pages(); track page.id) {
+                  <option [value]="page.id" [selected]="String(page.id) === d.termsPage">
+                    {{ page.title }}{{ page.published_at ? '' : ' (non publiée)' }}
+                  </option>
+                }
+              </select>
+            </label>
+            @if (d.termsPage === '') {
+              <p class="text-sm text-amber-900" data-testid="booking-closed">
+                Tant qu'aucune page n'est choisie, les visiteurs ne peuvent pas réserver en ligne.
+              </p>
+            }
           </fieldset>
 
           <fieldset class="flex flex-col gap-3 rounded-lg border p-4">
@@ -293,11 +398,19 @@ function whole(text: string): number | null {
           </ul>
         </details>
       }
+
+      <app-payment-info-section />
     </section>
   `,
 })
 export class HouseRulesPage {
   private readonly api = inject(HouseRulesApi);
+  private readonly pagesApi = inject(AdminPagesApi);
+
+  protected readonly times = TIMES;
+  protected readonly clock = clockTime;
+  protected readonly String = String;
+  protected readonly pages = signal<AdminPageSummary[]>([]);
 
   protected readonly weekdays = WEEKDAYS;
   protected readonly depositModes = DEPOSIT_MODES;
@@ -324,6 +437,15 @@ export class HouseRulesPage {
 
   constructor() {
     void this.load();
+    void this.loadPages();
+  }
+
+  private async loadPages(): Promise<void> {
+    try {
+      this.pages.set(await firstValueFrom(this.pagesApi.list()));
+    } catch {
+      this.pages.set([]);
+    }
   }
 
   protected patch(changes: Partial<RulesDraft>): void {
@@ -426,6 +548,7 @@ export function rulesFrom(draft: RulesDraft): { rules: HouseRules | null; errors
   );
   const exemptUnder = need(whole(draft.exemptUnder), "Âge d'exonération : un nombre entier.");
   const months = need(whole(draft.horizonMonths), 'Réservable : un nombre entier de mois.');
+  const alertDays = need(whole(draft.alertDays), "Alerte d'acompte : un nombre entier de jours.");
   if (errors.length > 0) {
     return { rules: null, errors };
   }
@@ -447,6 +570,11 @@ export function rulesFrom(draft: RulesDraft): { rules: HouseRules | null; errors
         exempt_under: exemptUnder,
       },
       horizon: { months, until: draft.horizonUntil || null },
+      arrival_from: draft.arrivalFrom,
+      departure_before: draft.departureBefore,
+      pets_allowed: draft.pets,
+      deposit_alert_days: alertDays,
+      terms_page: draft.termsPage === '' ? null : Number(draft.termsPage),
     },
   };
 }

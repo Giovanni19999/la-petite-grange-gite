@@ -3,9 +3,12 @@ import { Routes } from '@angular/router';
 import { menuResolver } from './features/public/pages/data-access/menu.resolver';
 import { pageResolver } from './features/public/pages/data-access/page.resolver';
 
-/** Home page and pages by slug, in one language (ADR-0013). */
+/** Home page, booking pages (F007) and pages by slug, in one language (ADR-0013). */
 function publicPages(lang: 'fr' | 'en'): Routes {
   const page = () => import('./features/public/pages/page.page').then((m) => m.PageView);
+  const booking = () => import('./features/public/booking/booking.page').then((m) => m.BookingPage);
+  const tracking = () =>
+    import('./features/public/booking/tracking.page').then((m) => m.TrackingPage);
   return [
     {
       path: '',
@@ -15,6 +18,8 @@ function publicPages(lang: 'fr' | 'en'): Routes {
       resolve: { menu: menuResolver },
       children: [
         { path: '', pathMatch: 'full', resolve: { page: pageResolver }, loadComponent: page },
+        { path: lang === 'fr' ? 'reserver' : 'book', loadComponent: booking },
+        { path: lang === 'fr' ? 'reservation/:token' : 'booking/:token', loadComponent: tracking },
         { path: ':slug', resolve: { page: pageResolver }, loadComponent: page },
       ],
     },
