@@ -20,12 +20,14 @@ import { MessagingApi } from '../messaging/data-access/messaging.api';
       </div>
       <p class="mt-2 text-muted-foreground">Connecté en tant que {{ store.user()?.email }}.</p>
       <nav class="mt-8 flex flex-wrap gap-2" aria-label="Administration">
+        <a hlmBtn variant="outline" routerLink="/admin/reservations">Réservations</a>
         <a hlmBtn variant="outline" routerLink="/admin/pages">Pages du site</a>
         <a hlmBtn variant="outline" routerLink="/admin/medias">Médiathèque</a>
         <a hlmBtn variant="outline" routerLink="/admin/fermetures">Fermetures</a>
         <a hlmBtn variant="outline" routerLink="/admin/tarifs">Tarifs</a>
         <a hlmBtn variant="outline" routerLink="/admin/promotions">Promotions et options</a>
         <a hlmBtn variant="outline" routerLink="/admin/regles">Règles du gîte</a>
+        <a hlmBtn variant="outline" routerLink="/admin/modeles">Modèles de messages</a>
         <a hlmBtn variant="outline" routerLink="/admin/messages">Envoi des messages</a>
       </nav>
       @if (messageProblems() > 0) {

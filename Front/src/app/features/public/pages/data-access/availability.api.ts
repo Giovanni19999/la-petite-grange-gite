@@ -21,6 +21,8 @@ export interface PublicCalendar {
   /** ISO weekday numbers, Monday = 1. */
   arrival_weekdays: number[];
   departure_weekdays: number[];
+  /** Direct booking is open (F007: rental terms page chosen). */
+  booking_open: boolean;
   nights: CalendarNight[];
 }
 

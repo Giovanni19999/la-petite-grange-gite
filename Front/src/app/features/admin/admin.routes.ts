@@ -55,6 +55,23 @@ export const adminRoutes: Routes = [
         loadComponent: () => import('./messaging/messaging.page').then((m) => m.MessagingPage),
       },
       {
+        path: 'reservations',
+        title: 'Réservations - La Petite Grange',
+        loadComponent: () =>
+          import('./bookings/bookings-list.page').then((m) => m.BookingsListPage),
+      },
+      {
+        path: 'reservations/:id',
+        title: 'Réservation - La Petite Grange',
+        loadComponent: () =>
+          import('./bookings/booking-detail.page').then((m) => m.BookingDetailPage),
+      },
+      {
+        path: 'modeles',
+        title: 'Modèles de messages - La Petite Grange',
+        loadComponent: () => import('./templates/templates.page').then((m) => m.TemplatesPage),
+      },
+      {
         path: 'medias',
         title: 'Médiathèque - La Petite Grange',
         loadComponent: () => import('./media/media-library.page').then((m) => m.MediaLibraryPage),

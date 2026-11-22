@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import {
@@ -54,6 +54,7 @@ const TEXT = {
     loadError: 'Le calendrier n’a pas pu être chargé.',
     calendar: 'Disponibilités et prix par nuit',
     perNight: 'par nuit',
+    book: 'Réserver ces dates',
   },
   en: {
     previous: 'Previous month',
@@ -84,6 +85,7 @@ const TEXT = {
     loadError: 'The calendar could not be loaded.',
     calendar: 'Availability and nightly prices',
     perNight: 'per night',
+    book: 'Book these dates',
   },
 };
 
@@ -107,6 +109,7 @@ function firstOf({ year, month }: Month): IsoDate {
 @Component({
   selector: 'app-availability-block',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterLink],
   template: `
     @let t = text();
     <section class="mx-auto flex max-w-5xl flex-col gap-4 px-4" [attr.aria-label]="t.calendar">
@@ -314,6 +317,16 @@ function firstOf({ year, month }: Month): IsoDate {
               }
             </fieldset>
           }
+          @if (calendar()?.booking_open) {
+            <a
+              class="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-5 font-medium text-primary-foreground hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+              data-testid="book"
+              [routerLink]="bookingPath"
+              [queryParams]="bookingQuery()"
+            >
+              {{ t.book }}
+            </a>
+          }
         } @else if (quoteError()) {
           <p class="text-sm text-destructive" role="alert">{{ t.error }}</p>
         } @else {
@@ -332,6 +345,15 @@ export class AvailabilityBlockView {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly lang: Lang = inject(Router).url.startsWith('/en') ? 'en' : 'fr';
   protected readonly text = signal(TEXT[this.lang]);
+  /** Booking page of the language (F007). */
+  protected readonly bookingPath = this.lang === 'en' ? '/en/book' : '/reserver';
+  protected readonly bookingQuery = computed(() => ({
+    arrival: this.arrival(),
+    departure: this.departure(),
+    adults: this.adults(),
+    children: this.children(),
+    options: this.selectedOptions().join(',') || null,
+  }));
 
   protected readonly today = todayInParis();
   private readonly start = signal<Month>(monthOf(this.today));

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { CurrentPage } from './data-access/current-page';
 import { Lang, MenuItem } from './data-access/pages.models';
@@ -47,11 +47,14 @@ export class PublicLayout {
   readonly menu = input<MenuItem[]>([]);
 
   private readonly current = inject(CurrentPage);
+  private readonly router = inject(Router);
 
   protected readonly homePath = computed(() => (this.lang() === 'en' ? '/en' : '/'));
   protected readonly otherLang = computed<Lang>(() => (this.lang() === 'en' ? 'fr' : 'en'));
-  protected readonly otherLanguagePath = computed(
-    () =>
+  /** Parsed, so that a query string (booking page, F007) is kept. */
+  protected readonly otherLanguagePath = computed(() =>
+    this.router.parseUrl(
       this.current.alternates()?.[this.otherLang()] ?? (this.otherLang() === 'en' ? '/en' : '/'),
+    ),
   );
 }

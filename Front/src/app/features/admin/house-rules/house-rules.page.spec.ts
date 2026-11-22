@@ -6,6 +6,7 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { HouseRules } from './data-access/house-rules.api';
+import { PaymentInfo } from './data-access/payment-info.api';
 import { HouseRulesPage } from './house-rules.page';
 
 const URL = '/api/admin/house-rules';
@@ -19,7 +20,31 @@ const SEED: HouseRules = {
   balance_days: 30,
   tourist_tax: { per_adult_night: 0, additional_bp: 0, exempt_under: 18 },
   horizon: { months: 24, until: null },
+  arrival_from: 960,
+  departure_before: 600,
+  pets_allowed: false,
+  deposit_alert_days: 7,
+  terms_page: null,
 };
+
+const PAYMENT: PaymentInfo = {
+  instructions: { fr: '<p>Virement</p>', en: '' },
+  methods: ['Virement', 'Chèque'],
+  document: null,
+  provider: 'none',
+};
+
+const PAGES = [
+  {
+    id: 2,
+    is_home: false,
+    title: 'Conditions de location',
+    slug: 'conditions',
+    draft_version: 1,
+    published_at: '2027-01-01T00:00:00Z',
+    unpublished_changes: false,
+  },
+];
 
 describe('F004 house rules page', () => {
   let harness: RouterTestingHarness;
@@ -37,6 +62,8 @@ describe('F004 house rules page', () => {
     http = TestBed.inject(HttpTestingController);
     await harness.navigateByUrl('/admin/regles');
     http.expectOne(URL).flush(SEED);
+    http.expectOne('/api/admin/pages').flush(PAGES);
+    http.expectOne('/api/admin/payment-info').flush(PAYMENT);
     await settle();
   });
 
@@ -134,6 +161,95 @@ describe('F004 house rules page', () => {
     );
     await settle();
     expect(page().textContent).toContain('capacité : de 1 à 50 personnes');
+  });
+});
+
+describe('F007 house rules of the bookings', () => {
+  let harness: RouterTestingHarness;
+  let http: HttpTestingController;
+
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([{ path: 'admin/regles', component: HouseRulesPage }]),
+      ],
+    });
+    harness = await RouterTestingHarness.create();
+    http = TestBed.inject(HttpTestingController);
+    await harness.navigateByUrl('/admin/regles');
+    http.expectOne(URL).flush(SEED);
+    http.expectOne('/api/admin/pages').flush(PAGES);
+    http.expectOne('/api/admin/payment-info').flush(PAYMENT);
+    await settle();
+  });
+
+  afterEach(() => http.verify());
+
+  const page = () => harness.routeNativeElement as HTMLElement;
+  const buttons = (text: string) =>
+    Array.from(page().querySelectorAll<HTMLButtonElement>('button')).filter(
+      (candidate) => candidate.textContent?.trim() === text,
+    );
+  async function choose(name: string, value: string): Promise<void> {
+    const select = page().querySelector<HTMLSelectElement>(`select[name="${name}"]`)!;
+    select.value = value;
+    select.dispatchEvent(new Event('change'));
+    await settle();
+  }
+
+  it('F007 says booking is closed until a rental terms page is chosen, then saves it', async () => {
+    expect(page().querySelector('[data-testid="booking-closed"]')).not.toBeNull();
+    await choose('termsPage', '2');
+    await choose('arrivalFrom', '1020');
+    const alert = page().querySelector<HTMLInputElement>('[name="alertDays"]')!;
+    alert.value = '10';
+    alert.dispatchEvent(new Event('input'));
+    page().querySelector<HTMLInputElement>('[name="pets"]')!.click();
+    await settle();
+    expect(page().querySelector('[data-testid="booking-closed"]')).toBeNull();
+    buttons('Valider')[0].click();
+    await settle();
+    const request = http.expectOne(URL);
+    expect(request.request.body).toEqual({
+      ...SEED,
+      terms_page: 2,
+      arrival_from: 1020,
+      deposit_alert_days: 10,
+      pets_allowed: true,
+    });
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+    http.expectOne(URL).flush({ ...SEED, terms_page: 2 });
+    await settle();
+  });
+
+  it('F007 saves the payment methods with their own button', async () => {
+    const methods = page().querySelector<HTMLTextAreaElement>('[name="methods"]')!;
+    expect(methods.value).toBe('Virement\nChèque');
+    methods.value = 'Virement\n\n Chèques-vacances ';
+    methods.dispatchEvent(new Event('input'));
+    await settle();
+    const [, paymentButton] = buttons('Valider');
+    paymentButton.click();
+    await settle();
+    const request = http.expectOne('/api/admin/payment-info');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({
+      instructions: PAYMENT.instructions,
+      methods: ['Virement', 'Chèques-vacances'],
+    });
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+    http
+      .expectOne('/api/admin/payment-info')
+      .flush({ ...PAYMENT, methods: ['Virement', 'Chèques-vacances'] });
+    await settle();
+    expect(page().textContent).toContain('Instructions enregistrées.');
+    expect(page().querySelector('[data-testid="document"]')!.textContent).toContain(
+      'Aucun document',
+    );
   });
 });
 

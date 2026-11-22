@@ -204,6 +204,11 @@ export class RichTextEditor {
     inject(DestroyRef).onDestroy(() => this.editor?.destroy());
   }
 
+  /** Inserts plain text at the cursor (a template variable, F007). */
+  insertText(text: string): void {
+    this.editor?.chain().focus().insertContent(text).run();
+  }
+
   protected run(command: Command): void {
     const chain = this.editor?.chain().focus();
     if (!chain) {
