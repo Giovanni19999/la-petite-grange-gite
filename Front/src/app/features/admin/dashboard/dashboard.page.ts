@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { firstValueFrom } from 'rxjs';
 
 import { LOGIN_PATH } from '../../../core/auth/auth.guard';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { MessagingApi } from '../messaging/data-access/messaging.api';
 
 /** Admin home: entry points to the admin features (the full dashboard comes later). */
 @Component({
@@ -24,13 +26,40 @@ import { AuthStore } from '../../../core/auth/auth.store';
         <a hlmBtn variant="outline" routerLink="/admin/tarifs">Tarifs</a>
         <a hlmBtn variant="outline" routerLink="/admin/promotions">Promotions et options</a>
         <a hlmBtn variant="outline" routerLink="/admin/regles">Règles du gîte</a>
+        <a hlmBtn variant="outline" routerLink="/admin/messages">Envoi des messages</a>
       </nav>
+      @if (messageProblems() > 0) {
+        <p class="mt-6 rounded-lg border border-destructive p-3 text-sm" role="alert">
+          {{ messageProblems() }}
+          {{
+            messageProblems() === 1
+              ? "message n'a pas pu être envoyé"
+              : "messages n'ont pas pu être envoyés"
+          }}.
+          <a routerLink="/admin/messages" class="underline">Voir l'envoi des messages</a>
+        </p>
+      }
     </section>
   `,
 })
 export class DashboardPage {
   protected readonly store = inject(AuthStore);
   private readonly router = inject(Router);
+  private readonly messaging = inject(MessagingApi);
+  /** Failed or to-check messages (F025). */
+  protected readonly messageProblems = signal(0);
+
+  constructor() {
+    void this.loadProblems();
+  }
+
+  private async loadProblems(): Promise<void> {
+    try {
+      this.messageProblems.set((await firstValueFrom(this.messaging.problems())).count);
+    } catch {
+      this.messageProblems.set(0);
+    }
+  }
 
   protected async logout(): Promise<void> {
     await this.store.logout();
