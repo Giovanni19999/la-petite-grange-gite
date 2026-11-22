@@ -21,6 +21,9 @@ pub enum ApiError {
     InvalidCredentials,
     #[error("Trop de tentatives de connexion, réessayez dans quelques minutes")]
     TooManyAttempts,
+    /// Another use case is rate limited; the message says which.
+    #[error("{0}")]
+    TooManyRequests(String),
     /// The submitted content breaks business rules; `details` lists every problem.
     #[error("Contenu invalide")]
     Invalid(Vec<String>),
@@ -37,7 +40,7 @@ impl ApiError {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Unauthorized | Self::InvalidCredentials => StatusCode::UNAUTHORIZED,
-            Self::TooManyAttempts => StatusCode::TOO_MANY_REQUESTS,
+            Self::TooManyAttempts | Self::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             Self::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Conflict { .. } => StatusCode::CONFLICT,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -50,7 +53,7 @@ impl ApiError {
             Self::BadRequest(_) => "bad_request",
             Self::Unauthorized => "unauthorized",
             Self::InvalidCredentials => "invalid_credentials",
-            Self::TooManyAttempts => "too_many_attempts",
+            Self::TooManyAttempts | Self::TooManyRequests(_) => "too_many_attempts",
             Self::Invalid(_) => "invalid_content",
             Self::Conflict { code, .. } => code,
             Self::Internal(_) => "internal_error",

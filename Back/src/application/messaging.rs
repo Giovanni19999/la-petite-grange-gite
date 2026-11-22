@@ -34,6 +34,38 @@ pub struct Email {
     pub subject: String,
     pub text: String,
     pub html: Option<String>,
+    pub attachments: Vec<AttachmentData>,
+}
+
+/// A file attached to an email, read from the private directory.
+#[derive(Clone, PartialEq, Eq)]
+pub struct AttachmentData {
+    pub name: String,
+    pub content_type: String,
+    pub bytes: Vec<u8>,
+}
+
+impl fmt::Debug for AttachmentData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AttachmentData")
+            .field("name", &self.name)
+            .field("content_type", &self.content_type)
+            .field("size", &self.bytes.len())
+            .finish()
+    }
+}
+
+/// Port: private documents (the bank details document of F007), never served publicly.
+pub trait DocumentStore: Send + Sync {
+    /// Stores the bytes under a new name ending with `extension`; returns that name.
+    fn save<'a>(
+        &'a self,
+        bytes: &'a [u8],
+        extension: &'a str,
+    ) -> BoxFuture<'a, anyhow::Result<String>>;
+    /// `None` when there is no such file.
+    fn read<'a>(&'a self, file: &'a str) -> BoxFuture<'a, anyhow::Result<Option<Vec<u8>>>>;
+    fn delete<'a>(&'a self, file: &'a str) -> BoxFuture<'a, anyhow::Result<()>>;
 }
 
 /// Port: sends one SMS.
@@ -150,6 +182,7 @@ pub struct MessagingService {
     store: Arc<dyn MessageStore>,
     mailer: Arc<dyn Mailer>,
     sms: Arc<dyn SmsSender>,
+    documents: Arc<dyn DocumentStore>,
     clock: Arc<dyn Clock>,
 }
 
@@ -165,12 +198,14 @@ impl MessagingService {
         store: Arc<dyn MessageStore>,
         mailer: Arc<dyn Mailer>,
         sms: Arc<dyn SmsSender>,
+        documents: Arc<dyn DocumentStore>,
         clock: Arc<dyn Clock>,
     ) -> Self {
         Self {
             store,
             mailer,
             sms,
+            documents,
             clock,
         }
     }
@@ -274,19 +309,38 @@ impl MessagingService {
                 subject,
                 text,
                 html,
-            } => Some(
-                self.mailer
-                    .send(
-                        &settings.smtp,
-                        &Email {
-                            to: message.recipient.clone(),
-                            subject: subject.clone(),
-                            text: text.clone(),
-                            html: html.clone(),
-                        },
-                    )
-                    .await,
-            ),
+                attachments,
+            } => {
+                let mut files = Vec::new();
+                for attachment in attachments {
+                    match self.documents.read(&attachment.file).await {
+                        Ok(Some(bytes)) => files.push(AttachmentData {
+                            name: attachment.name.clone(),
+                            content_type: attachment.content_type.clone(),
+                            bytes,
+                        }),
+                        Ok(None) => return Some(Err(SendError::Attachment)),
+                        Err(error) => {
+                            tracing::error!(%error, "cannot read an attachment");
+                            return Some(Err(SendError::Attachment));
+                        }
+                    }
+                }
+                Some(
+                    self.mailer
+                        .send(
+                            &settings.smtp,
+                            &Email {
+                                to: message.recipient.clone(),
+                                subject: subject.clone(),
+                                text: text.clone(),
+                                html: html.clone(),
+                                attachments: files,
+                            },
+                        )
+                        .await,
+                )
+            }
             Content::Sms { text } => {
                 if !settings.sms_enabled || !self.sms.available() {
                     return None;
@@ -348,6 +402,7 @@ impl MessagingService {
                 subject: TEST_SUBJECT.to_owned(),
                 text: TEST_TEXT.to_owned(),
                 html: Some(format!("<p>{TEST_TEXT}</p>")),
+                attachments: Vec::new(),
             };
             results.push(TestResult {
                 recipient: address.clone(),

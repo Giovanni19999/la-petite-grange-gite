@@ -3,7 +3,7 @@
 //! [`Infrastructure`] owns the shared resources (database pool) and their lifecycle;
 //! the free functions build use cases from them.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,20 +13,26 @@ use sqlx::MySqlPool;
 use crate::app_state::AppState;
 use crate::application::admin_accounts::AdminAccounts;
 use crate::application::auth::{AuthPorts, AuthService, LoginThrottle};
-use crate::application::calendar::{CalendarPorts, CalendarService, NoStays};
+use crate::application::bookings::{
+    BookingPorts, BookingService, BookingServices, BookingSettings, NoPayment, PaymentGateway,
+};
+use crate::application::calendar::{CalendarPorts, CalendarService};
 use crate::application::house_rules::HouseRulesService;
 use crate::application::media::{MediaPorts, MediaService, MediaSettings};
-use crate::application::messaging::{Mailer, MessagingService, SmsSender};
+use crate::application::messaging::{DocumentStore, Mailer, MessagingService, SmsSender};
 use crate::application::offers::OffersService;
 use crate::application::pages::PageService;
 use crate::application::pricing::{PricingPorts, PricingService};
 use crate::application::quote::QuoteService;
-use crate::config::{Config, SmsProvider};
+use crate::application::templates::TemplatesService;
+use crate::config::{BookingConfig, Config, PaymentProvider, SmsProvider};
 use crate::domain::auth::SessionPolicy;
 use crate::infrastructure::auth::{
     Argon2Hasher, MariaDbSessions, MariaDbUsers, OsRandom, SystemClock,
 };
+use crate::infrastructure::bookings::{MariaDbBookings, MariaDbTemplates};
 use crate::infrastructure::calendar::{MariaDbBlockedPeriods, MariaDbCottages};
+use crate::infrastructure::documents::FsDocuments;
 use crate::infrastructure::house_rules::MariaDbHouseRules;
 use crate::infrastructure::images::WebpImageProcessor;
 use crate::infrastructure::mariadb::{MariaDbProbe, lazy_pool, migrate};
@@ -121,11 +127,7 @@ impl Infrastructure {
     pub fn app_state(&self) -> anyhow::Result<AppState> {
         let mut state = app_state(
             &self.pool,
-            self.config.session_policy,
-            self.config.login_throttle,
-            &self.config.media_dir,
-            self.config.media.clone(),
-            self.config.availability_max_days,
+            &StateSettings::from_config(&self.config),
             Senders::from_config(&self.config)?,
         )?;
         state.trust_proxy_headers = self.config.trust_proxy_headers;
@@ -135,11 +137,13 @@ impl Infrastructure {
         Ok(state)
     }
 
-    /// Starts the background task that sends the queued messages (F025, ADR-0019).
+    /// Starts the background task that sends the queued messages (F025, ADR-0019) and
+    /// alerts the owners of late deposits (F007).
     #[must_use]
     pub fn start_message_worker(&self, state: &AppState) -> tokio::task::JoinHandle<()> {
         spawn_message_worker(
             state.messaging.clone(),
+            state.bookings.clone(),
             Duration::from_secs(u64::from(self.config.messaging.worker_interval_seconds)),
         )
     }
@@ -213,26 +217,30 @@ pub fn media_service(
     ))
 }
 
-/// Builds the calendar service backed by `MariaDB`. Stays (bookings, holds) do not exist yet:
-/// F007 and F014 replace [`NoStays`].
+/// Builds the calendar service backed by `MariaDB`; the stays are the direct bookings (F007;
+/// imported stays come with F014).
 #[must_use]
 pub fn calendar_service(pool: &MySqlPool, availability_max_days: u32) -> CalendarService {
     CalendarService::new(
         CalendarPorts {
             cottages: Arc::new(MariaDbCottages::new(pool.clone())),
             periods: Arc::new(MariaDbBlockedPeriods::new(pool.clone())),
-            stays: Arc::new(NoStays),
+            stays: Arc::new(MariaDbBookings::new(pool.clone())),
             clock: Arc::new(SystemClock),
         },
         availability_max_days,
     )
 }
 
+/// How often late deposits are looked for (F007).
+const DEPOSIT_CHECK: Duration = Duration::from_secs(3600);
+
 /// Background task: marks the messages interrupted by a stop `to_check`, then sends the due
-/// messages every `interval`, until aborted.
+/// messages every `interval` and looks for late deposits every hour, until aborted.
 #[must_use]
 pub fn spawn_message_worker(
     messaging: Arc<MessagingService>,
+    bookings: Arc<BookingService>,
     interval: Duration,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
@@ -243,13 +251,47 @@ pub fn spawn_message_worker(
         }
         let mut ticker = tokio::time::interval(interval);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut last_check: Option<tokio::time::Instant> = None;
         loop {
             ticker.tick().await;
+            if last_check.is_none_or(|at| at.elapsed() >= DEPOSIT_CHECK) {
+                last_check = Some(tokio::time::Instant::now());
+                match bookings.alert_late_deposits().await {
+                    Ok(0) => {}
+                    Ok(count) => tracing::info!(count, "late deposits alerted"),
+                    Err(error) => tracing::error!(%error, "cannot look for late deposits"),
+                }
+            }
             if let Err(error) = messaging.process_due().await {
                 tracing::error!(%error, "message sending round failed");
             }
         }
     })
+}
+
+/// Technical settings the application state is built from.
+#[derive(Debug, Clone)]
+pub struct StateSettings {
+    pub policy: SessionPolicy,
+    pub throttle: LoginThrottle,
+    pub media_dir: PathBuf,
+    pub media: MediaSettings,
+    pub availability_max_days: u32,
+    pub bookings: BookingConfig,
+}
+
+impl StateSettings {
+    #[must_use]
+    pub fn from_config(config: &Config) -> Self {
+        Self {
+            policy: config.session_policy,
+            throttle: config.login_throttle,
+            media_dir: config.media_dir.clone(),
+            media: config.media.clone(),
+            availability_max_days: config.availability_max_days,
+            bookings: config.bookings.clone(),
+        }
+    }
 }
 
 /// Builds the full application state.
@@ -259,14 +301,16 @@ pub fn spawn_message_worker(
 /// Returns an error if a service cannot be initialised.
 pub fn app_state(
     pool: &MySqlPool,
-    policy: SessionPolicy,
-    throttle: LoginThrottle,
-    media_dir: &Path,
-    media_settings: MediaSettings,
-    availability_max_days: u32,
+    settings: &StateSettings,
     senders: Senders,
 ) -> anyhow::Result<AppState> {
-    let media = Arc::new(media_service(pool, media_dir, media_settings)?);
+    let availability_max_days = settings.availability_max_days;
+    let media = Arc::new(media_service(
+        pool,
+        &settings.media_dir,
+        settings.media.clone(),
+    )?);
+    let documents: Arc<dyn DocumentStore> = Arc::new(FsDocuments::new(&settings.media_dir)?);
     let calendar = Arc::new(calendar_service(pool, availability_max_days));
     let pricing = Arc::new(PricingService::new(
         PricingPorts {
@@ -293,9 +337,46 @@ pub fn app_state(
         offers.clone(),
         Arc::new(SystemClock),
     ));
+    let messaging = Arc::new(MessagingService::new(
+        Arc::new(MariaDbMessages::new(pool.clone())),
+        senders.mailer,
+        senders.sms,
+        documents.clone(),
+        Arc::new(SystemClock),
+    ));
+    let templates = Arc::new(TemplatesService::new(Arc::new(MariaDbTemplates::new(
+        pool.clone(),
+    ))));
+    let bookings_db = Arc::new(MariaDbBookings::new(pool.clone()));
+    let payments: Arc<dyn PaymentGateway> = match settings.bookings.payment_provider {
+        PaymentProvider::None => Arc::new(NoPayment),
+    };
+    let bookings = Arc::new(BookingService::new(
+        BookingPorts {
+            bookings: bookings_db.clone(),
+            payment_info: bookings_db.clone(),
+            terms: bookings_db.clone(),
+            attempts: bookings_db,
+            documents,
+            payments,
+            cottages: Arc::new(MariaDbCottages::new(pool.clone())),
+            clock: Arc::new(SystemClock),
+        },
+        BookingServices {
+            quotes: quotes.clone(),
+            rules: house_rules.clone(),
+            messaging: messaging.clone(),
+            templates: templates.clone(),
+        },
+        BookingSettings {
+            site_url: settings.bookings.site_url.clone(),
+            max_attempts: settings.bookings.max_attempts,
+            attempt_window: settings.bookings.attempt_window,
+        },
+    ));
     Ok(AppState {
         database: Arc::new(MariaDbProbe::new(pool.clone())),
-        auth: Arc::new(auth_service(pool, policy, throttle)?),
+        auth: Arc::new(auth_service(pool, settings.policy, settings.throttle)?),
         pages: Arc::new(PageService::new(
             Arc::new(MariaDbPages::new(pool.clone())),
             Arc::new(SystemClock),
@@ -307,12 +388,9 @@ pub fn app_state(
         house_rules,
         offers,
         quotes,
-        messaging: Arc::new(MessagingService::new(
-            Arc::new(MariaDbMessages::new(pool.clone())),
-            senders.mailer,
-            senders.sms,
-            Arc::new(SystemClock),
-        )),
+        messaging,
+        templates,
+        bookings,
         serve_media_dir: None,
         trust_proxy_headers: false,
     })

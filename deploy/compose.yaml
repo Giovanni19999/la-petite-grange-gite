@@ -39,6 +39,9 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMS_PROVIDER: ${SMS_PROVIDER:-none}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
+      # Direct bookings (F007, ADR-0020): links of the emails, online payment provider (none).
+      SITE_URL: ${SITE_URL:-http://localhost:8000}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-none}
     volumes:
       - media:/data/media
     depends_on:

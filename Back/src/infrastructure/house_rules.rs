@@ -43,6 +43,11 @@ struct RulesRow {
     tourist_tax_per_adult_night: u64,
     tourist_tax_additional_bp: u16,
     tourist_tax_exempt_under: u8,
+    arrival_from: u16,
+    departure_before: u16,
+    pets_allowed: bool,
+    deposit_alert_days: u16,
+    terms_page_id: Option<u64>,
 }
 
 impl TryFrom<RulesRow> for HouseRules {
@@ -74,6 +79,11 @@ impl TryFrom<RulesRow> for HouseRules {
                 months: row.reservable_months,
                 until: row.reservable_until,
             },
+            arrival_from: row.arrival_from,
+            departure_before: row.departure_before,
+            pets_allowed: row.pets_allowed,
+            deposit_alert_days: row.deposit_alert_days,
+            terms_page: row.terms_page_id,
         })
     }
 }
@@ -104,7 +114,8 @@ impl HouseRulesRepository for MariaDbHouseRules {
                 "SELECT reservable_months, reservable_until, capacity, min_delay_days, \
                  arrival_weekdays, departure_weekdays, deposit_mode, deposit_percent, \
                  deposit_fixed, balance_days, tourist_tax_per_adult_night, \
-                 tourist_tax_additional_bp, tourist_tax_exempt_under \
+                 tourist_tax_additional_bp, tourist_tax_exempt_under, arrival_from, \
+                 departure_before, pets_allowed, deposit_alert_days, terms_page_id \
                  FROM booking_rules WHERE cottage_id = ?",
             )
             .bind(cottage.0)
@@ -138,7 +149,9 @@ impl HouseRulesRepository for MariaDbHouseRules {
                  deposit_mode = ?, deposit_percent = COALESCE(?, deposit_percent), \
                  deposit_fixed = COALESCE(?, deposit_fixed), balance_days = ?, \
                  tourist_tax_per_adult_night = ?, tourist_tax_additional_bp = ?, \
-                 tourist_tax_exempt_under = ? WHERE cottage_id = ?",
+                 tourist_tax_exempt_under = ?, arrival_from = ?, departure_before = ?, \
+                 pets_allowed = ?, deposit_alert_days = ?, terms_page_id = ? \
+                 WHERE cottage_id = ?",
             )
             .bind(rules.horizon.months)
             .bind(rules.horizon.until)
@@ -153,6 +166,11 @@ impl HouseRulesRepository for MariaDbHouseRules {
             .bind(rules.tourist_tax.per_adult_night)
             .bind(rules.tourist_tax.additional_bp)
             .bind(rules.tourist_tax.exempt_under)
+            .bind(rules.arrival_from)
+            .bind(rules.departure_before)
+            .bind(rules.pets_allowed)
+            .bind(rules.deposit_alert_days)
+            .bind(rules.terms_page)
             .bind(cottage.0)
             .execute(&mut *tx)
             .await

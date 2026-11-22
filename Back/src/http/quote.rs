@@ -59,12 +59,15 @@ pub struct CalendarResponse {
     children_under: u8,
     arrival_weekdays: Weekdays,
     departure_weekdays: Weekdays,
+    /// Direct booking is open (F007: rental terms page chosen and published).
+    booking_open: bool,
     nights: Vec<NightResponse>,
 }
 
-impl From<PublicCalendar> for CalendarResponse {
-    fn from(calendar: PublicCalendar) -> Self {
+impl CalendarResponse {
+    fn new(calendar: PublicCalendar, booking_open: bool) -> Self {
         Self {
+            booking_open,
             earliest_arrival: calendar.earliest_arrival,
             last_night: calendar.last_night,
             capacity: calendar.rules.capacity,
@@ -89,9 +92,9 @@ async fn calendar(
     query: Result<Query<RangeQuery>, QueryRejection>,
 ) -> Result<Json<CalendarResponse>, ApiError> {
     let Query(range) = query.map_err(|rejection| ApiError::BadRequest(rejection.body_text()))?;
-    Ok(Json(
-        state.quotes.calendar(range.from, range.to).await?.into(),
-    ))
+    let calendar = state.quotes.calendar(range.from, range.to).await?;
+    let open = state.bookings.info().await?.open;
+    Ok(Json(CalendarResponse::new(calendar, open)))
 }
 
 #[derive(Debug, Deserialize)]

@@ -177,7 +177,9 @@ async fn f004_s09_house_rules_and_history() {
             "arrival_weekdays": [1, 2, 3, 4, 5, 6, 7], "departure_weekdays": [1, 2, 3, 4, 5, 6, 7],
             "deposit": { "mode": "percentage", "percent": 50 }, "balance_days": 30,
             "tourist_tax": { "per_adult_night": 0, "additional_bp": 0, "exempt_under": 18 },
-            "horizon": { "months": 24, "until": null }
+            "horizon": { "months": 24, "until": null },
+            "arrival_from": 960, "departure_before": 600, "pets_allowed": false,
+            "deposit_alert_days": 7, "terms_page": null
         })
     );
 

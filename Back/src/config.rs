@@ -113,6 +113,24 @@ pub struct MessagingConfig {
     pub worker_interval_seconds: u32,
 }
 
+/// Online payment provider (ADR-0006), chosen by `PAYMENT_PROVIDER`. Only `none` exists
+/// while the owners have not chosen one: bookings are paid offline (ADR-0020).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaymentProvider {
+    None,
+}
+
+/// Technical settings of the direct bookings (F007).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BookingConfig {
+    pub payment_provider: PaymentProvider,
+    /// Public address of the site (`SITE_URL`), for the links sent by email.
+    pub site_url: String,
+    /// Most booking attempts per IP address in the window.
+    pub max_attempts: u32,
+    pub attempt_window: Duration,
+}
+
 /// Validated technical configuration of the API.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -137,6 +155,8 @@ pub struct Config {
     pub availability_max_days: u32,
     /// Sending of emails and SMS.
     pub messaging: MessagingConfig,
+    /// Direct bookings.
+    pub bookings: BookingConfig,
 }
 
 /// Configuration error, always naming the faulty variable.
@@ -171,6 +191,10 @@ mod defaults {
     pub const SMS_PROVIDER: &str = "none";
     pub const BREVO_API_URL: &str = "https://api.brevo.com";
     pub const MESSAGE_WORKER_SECONDS: &str = "10";
+    pub const PAYMENT_PROVIDER: &str = "none";
+    pub const SITE_URL: &str = "http://localhost:4200";
+    pub const BOOKING_MAX_ATTEMPTS: &str = "5";
+    pub const BOOKING_WINDOW_MINUTES: &str = "60";
 }
 
 impl Config {
@@ -284,6 +308,7 @@ impl Config {
             serve_media_files,
             availability_max_days,
             messaging: messaging_config(&lookup)?,
+            bookings: booking_config(&lookup)?,
         })
     }
 }
@@ -368,6 +393,44 @@ fn messaging_config(
             "MESSAGE_WORKER_SECONDS",
             defaults::MESSAGE_WORKER_SECONDS,
         )?,
+    })
+}
+
+/// Direct bookings (F007, ADR-0020): payment provider, site address, rate limit.
+fn booking_config(lookup: &impl Fn(&str) -> Option<String>) -> Result<BookingConfig, ConfigError> {
+    let payment_provider =
+        match optional(lookup, "PAYMENT_PROVIDER", defaults::PAYMENT_PROVIDER).as_str() {
+            "none" => PaymentProvider::None,
+            other => {
+                return Err(ConfigError::Invalid {
+                    variable: "PAYMENT_PROVIDER",
+                    reason: format!("\"{other}\" is not one of: none"),
+                });
+            }
+        };
+    let site_url = optional(lookup, "SITE_URL", defaults::SITE_URL)
+        .trim()
+        .trim_end_matches('/')
+        .to_owned();
+    if !(site_url.starts_with("http://") || site_url.starts_with("https://")) {
+        return Err(ConfigError::Invalid {
+            variable: "SITE_URL",
+            reason: "must start with http:// or https://".to_owned(),
+        });
+    }
+    Ok(BookingConfig {
+        payment_provider,
+        site_url,
+        max_attempts: positive(
+            lookup,
+            "BOOKING_MAX_ATTEMPTS",
+            defaults::BOOKING_MAX_ATTEMPTS,
+        )?,
+        attempt_window: Duration::minutes(i64::from(positive(
+            lookup,
+            "BOOKING_WINDOW_MINUTES",
+            defaults::BOOKING_WINDOW_MINUTES,
+        )?)),
     })
 }
 
@@ -461,6 +524,27 @@ mod tests {
         assert_eq!(config.messaging.sms, SmsProvider::None);
         assert_eq!(config.messaging.smtp_password, None);
         assert_eq!(config.messaging.worker_interval_seconds, 10);
+        assert_eq!(config.bookings.payment_provider, PaymentProvider::None);
+        assert_eq!(config.bookings.site_url, "http://localhost:4200");
+        assert_eq!(config.bookings.max_attempts, 5);
+        assert_eq!(config.bookings.attempt_window, Duration::minutes(60));
+    }
+
+    #[test]
+    fn f007_unknown_payment_provider_stops_the_api() {
+        let mut pairs = VALID.to_vec();
+        pairs.push(("PAYMENT_PROVIDER", "stripe"));
+        assert_eq!(
+            Config::from_lookup(lookup_from(&pairs)).unwrap_err(),
+            ConfigError::Invalid {
+                variable: "PAYMENT_PROVIDER",
+                reason: "\"stripe\" is not one of: none".to_owned(),
+            }
+        );
+        let mut pairs = VALID.to_vec();
+        pairs.push(("SITE_URL", "https://gite.example.test/"));
+        let config = Config::from_lookup(lookup_from(&pairs)).unwrap();
+        assert_eq!(config.bookings.site_url, "https://gite.example.test");
     }
 
     #[test]

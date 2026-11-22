@@ -270,10 +270,22 @@ pub enum Content {
         subject: String,
         text: String,
         html: Option<String>,
+        /// Files of the private directory, read when the email is sent.
+        attachments: Vec<Attachment>,
     },
     Sms {
         text: String,
     },
+}
+
+/// A file attached to an email (F007: the bank details document).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Attachment {
+    /// Name shown to the recipient.
+    pub name: String,
+    pub content_type: String,
+    /// Name of the file in the private directory.
+    pub file: String,
 }
 
 impl Content {
@@ -359,6 +371,8 @@ pub enum SendError {
     NoCredit,
     #[error("erreur du serveur ou du prestataire")]
     Provider,
+    #[error("pièce jointe introuvable")]
+    Attachment,
 }
 
 impl SendError {
@@ -375,6 +389,7 @@ impl SendError {
             Self::InvalidNumber => "invalid_number",
             Self::NoCredit => "no_credit",
             Self::Provider => "provider",
+            Self::Attachment => "attachment",
         }
     }
 
@@ -390,6 +405,7 @@ impl SendError {
             Self::InvalidNumber,
             Self::NoCredit,
             Self::Provider,
+            Self::Attachment,
         ]
         .into_iter()
         .find(|error| error.as_str() == value)

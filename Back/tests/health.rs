@@ -36,13 +36,11 @@ fn app(database_reachable: bool) -> axum::Router {
     })
     .unwrap();
     let media_dir = std::env::temp_dir().join("gite-api-health-test-media");
+    let mut settings = wiring::StateSettings::from_config(&defaults);
+    settings.media_dir = media_dir;
     let mut state = wiring::app_state(
         &pool,
-        defaults.session_policy,
-        defaults.login_throttle,
-        &media_dir,
-        defaults.media.clone(),
-        defaults.availability_max_days,
+        &settings,
         wiring::Senders::from_config(&defaults).unwrap(),
     )
     .unwrap();
