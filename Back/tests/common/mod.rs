@@ -10,14 +10,17 @@ use axum::http::{Request, header};
 use axum::response::Response;
 use gite_api::application::auth::LoginThrottle;
 use gite_api::application::media::MediaSettings;
+use gite_api::application::messaging::MessagingService;
 use gite_api::domain::auth::{Password, SessionPolicy};
 use gite_api::domain::media::{ImageSettings, UploadLimits};
 use gite_api::http::router;
 use gite_api::infrastructure::mariadb::migrate;
-use gite_api::wiring;
+use gite_api::infrastructure::memory_senders::{MemoryMailer, MemorySms};
+use gite_api::wiring::{self, Senders};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use sqlx::MySqlPool;
+use std::sync::Arc;
 use testcontainers_modules::mariadb::Mariadb;
 use testcontainers_modules::testcontainers::ContainerAsync;
 use testcontainers_modules::testcontainers::runners::AsyncRunner;
@@ -32,11 +35,32 @@ pub struct TestApp {
     _container: ContainerAsync<Mariadb>,
     /// Media files of this test (deleted with the app).
     pub media_dir: tempfile::TempDir,
+    /// Emails and SMS "sent" (F025), when started with the fake senders.
+    pub mailer: MemoryMailer,
+    pub sms: MemorySms,
+    /// Sending use cases, to run a round of the background task by hand.
+    pub messaging: Arc<MessagingService>,
+    pub pool: MySqlPool,
 }
 
 impl TestApp {
-    /// Starts `MariaDB`, applies the migrations (with the seed pages) and creates the owner.
+    /// Starts `MariaDB`, applies the migrations (with the seed pages) and creates the owner;
+    /// emails and SMS are kept in memory.
     pub async fn start() -> Self {
+        let mailer = MemoryMailer::default();
+        let sms = MemorySms::default();
+        let mut app = Self::start_with(Senders {
+            mailer: Arc::new(mailer.clone()),
+            sms: Arc::new(sms.clone()),
+        })
+        .await;
+        app.mailer = mailer;
+        app.sms = sms;
+        app
+    }
+
+    /// Same as [`TestApp::start`] with the given senders (real SMTP, fake Brevo…).
+    pub async fn start_with(senders: Senders) -> Self {
         let container = Mariadb::default().start().await.unwrap();
         let host = container.get_host().await.unwrap();
         let port = container.get_host_port_ipv4(3306).await.unwrap();
@@ -71,14 +95,26 @@ impl TestApp {
             },
             public_url: "/uploads".to_owned(),
         };
-        let mut state =
-            wiring::app_state(&pool, policy, throttle, media_dir.path(), media, 400).unwrap();
+        let mut state = wiring::app_state(
+            &pool,
+            policy,
+            throttle,
+            media_dir.path(),
+            media,
+            400,
+            senders,
+        )
+        .unwrap();
         state.serve_media_dir = Some(media_dir.path().join("public"));
 
         Self {
+            messaging: state.messaging.clone(),
             router: router(state),
             _container: container,
             media_dir,
+            mailer: MemoryMailer::default(),
+            sms: MemorySms::default(),
+            pool,
         }
     }
 

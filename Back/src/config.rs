@@ -75,6 +75,12 @@ impl FromStr for LogFormat {
 pub struct Secret(String);
 
 impl Secret {
+    /// Wraps a secret value.
+    #[must_use]
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
     /// Returns the secret value. Call only where the value is actually used.
     #[must_use]
     pub fn expose(&self) -> &str {
@@ -86,6 +92,25 @@ impl fmt::Debug for Secret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Secret(***)")
     }
+}
+
+/// SMS provider (F025, ADR-0019), chosen by `SMS_PROVIDER`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SmsProvider {
+    /// SMS are not sent.
+    None,
+    /// Brevo transactional SMS.
+    Brevo { api_key: Secret, base_url: String },
+}
+
+/// Technical settings of the sending of messages (F025, ADR-0019); the rest is in the database.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MessagingConfig {
+    /// `SMTP_PASSWORD` or the content of `SMTP_PASSWORD_FILE`.
+    pub smtp_password: Option<Secret>,
+    pub sms: SmsProvider,
+    /// Seconds between two rounds of the sending task.
+    pub worker_interval_seconds: u32,
 }
 
 /// Validated technical configuration of the API.
@@ -110,6 +135,8 @@ pub struct Config {
     pub serve_media_files: bool,
     /// Longest range, in days, the public availability endpoint answers (F005).
     pub availability_max_days: u32,
+    /// Sending of emails and SMS.
+    pub messaging: MessagingConfig,
 }
 
 /// Configuration error, always naming the faulty variable.
@@ -141,6 +168,9 @@ mod defaults {
     pub const MEDIA_WIDTHS: &str = "480,960,1440,1920";
     pub const MEDIA_WEBP_QUALITY: &str = "80";
     pub const AVAILABILITY_MAX_DAYS: &str = "400";
+    pub const SMS_PROVIDER: &str = "none";
+    pub const BREVO_API_URL: &str = "https://api.brevo.com";
+    pub const MESSAGE_WORKER_SECONDS: &str = "10";
 }
 
 impl Config {
@@ -253,6 +283,7 @@ impl Config {
             media,
             serve_media_files,
             availability_max_days,
+            messaging: messaging_config(&lookup)?,
         })
     }
 }
@@ -289,6 +320,55 @@ fn boolean(
             reason: "must be true or false".to_owned(),
         }),
     }
+}
+
+/// A secret from `name`, or from the file named by `file_name` (Docker secrets).
+fn secret(
+    lookup: &impl Fn(&str) -> Option<String>,
+    name: &'static str,
+    file_name: &'static str,
+) -> Result<Option<Secret>, ConfigError> {
+    if let Some(value) = lookup(name).filter(|value| !value.is_empty()) {
+        return Ok(Some(Secret(value)));
+    }
+    let Some(path) = lookup(file_name).filter(|path| !path.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let value = std::fs::read_to_string(path.trim()).map_err(|error| ConfigError::Invalid {
+        variable: file_name,
+        reason: format!("cannot read the file: {error}"),
+    })?;
+    let value = value.trim();
+    Ok((!value.is_empty()).then(|| Secret(value.to_owned())))
+}
+
+/// Sending of messages (F025, ADR-0019): SMTP password, SMS provider, task interval.
+fn messaging_config(
+    lookup: &impl Fn(&str) -> Option<String>,
+) -> Result<MessagingConfig, ConfigError> {
+    let sms = match optional(lookup, "SMS_PROVIDER", defaults::SMS_PROVIDER).as_str() {
+        "none" => SmsProvider::None,
+        "brevo" => SmsProvider::Brevo {
+            api_key: secret(lookup, "BREVO_API_KEY", "BREVO_API_KEY_FILE")?
+                .ok_or(ConfigError::Missing("BREVO_API_KEY"))?,
+            base_url: optional(lookup, "BREVO_API_URL", defaults::BREVO_API_URL),
+        },
+        other => {
+            return Err(ConfigError::Invalid {
+                variable: "SMS_PROVIDER",
+                reason: format!("\"{other}\" is not one of: none, brevo"),
+            });
+        }
+    };
+    Ok(MessagingConfig {
+        smtp_password: secret(lookup, "SMTP_PASSWORD", "SMTP_PASSWORD_FILE")?,
+        sms,
+        worker_interval_seconds: positive(
+            lookup,
+            "MESSAGE_WORKER_SECONDS",
+            defaults::MESSAGE_WORKER_SECONDS,
+        )?,
+    })
 }
 
 /// Media library settings (F003, ADR-0017): directory, limits, sizes, public URL.
@@ -378,6 +458,45 @@ mod tests {
         assert_eq!(config.media.limits.max_pixels, 50_000_000);
         assert_eq!(config.media.public_url, "/uploads");
         assert!(!config.serve_media_files);
+        assert_eq!(config.messaging.sms, SmsProvider::None);
+        assert_eq!(config.messaging.smtp_password, None);
+        assert_eq!(config.messaging.worker_interval_seconds, 10);
+    }
+
+    #[test]
+    fn f025_brevo_needs_its_api_key() {
+        let mut pairs = VALID.to_vec();
+        pairs.push(("SMS_PROVIDER", "brevo"));
+        assert_eq!(
+            Config::from_lookup(lookup_from(&pairs)).unwrap_err(),
+            ConfigError::Missing("BREVO_API_KEY")
+        );
+        pairs.push(("BREVO_API_KEY", "xkeysib-test"));
+        pairs.push(("SMTP_PASSWORD", "secret"));
+        let config = Config::from_lookup(lookup_from(&pairs)).unwrap();
+        assert_eq!(
+            config.messaging.sms,
+            SmsProvider::Brevo {
+                api_key: Secret::new("xkeysib-test"),
+                base_url: "https://api.brevo.com".to_owned(),
+            }
+        );
+        // F025-S04: secrets never printed.
+        let printed = format!("{config:?}");
+        assert!(!printed.contains("xkeysib-test") && !printed.contains("secret\""));
+    }
+
+    #[test]
+    fn f025_unknown_sms_provider() {
+        let mut pairs = VALID.to_vec();
+        pairs.push(("SMS_PROVIDER", "twilio"));
+        assert!(matches!(
+            Config::from_lookup(lookup_from(&pairs)),
+            Err(ConfigError::Invalid {
+                variable: "SMS_PROVIDER",
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -454,7 +573,7 @@ mod tests {
 
         let printed = format!("{config:?}");
 
-        assert!(!printed.contains("pass"));
+        assert!(!printed.contains("user:pass"));
         assert!(printed.contains("Secret(***)"));
     }
 }
