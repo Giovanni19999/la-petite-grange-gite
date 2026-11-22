@@ -9,8 +9,10 @@ use axum::extract::ConnectInfo;
 use axum::http::{Request, header};
 use axum::response::Response;
 use gite_api::application::auth::LoginThrottle;
+use gite_api::application::bookings::BookingService;
 use gite_api::application::media::MediaSettings;
 use gite_api::application::messaging::MessagingService;
+use gite_api::config::{BookingConfig, PaymentProvider};
 use gite_api::domain::auth::{Password, SessionPolicy};
 use gite_api::domain::media::{ImageSettings, UploadLimits};
 use gite_api::http::router;
@@ -29,6 +31,8 @@ use tower::ServiceExt;
 
 pub const EMAIL: &str = "proprio@example.test";
 pub const PASSWORD: &str = "correct horse battery";
+/// Address of the site in the links of the messages.
+pub const SITE_URL: &str = "https://gite.example.test";
 
 pub struct TestApp {
     router: axum::Router,
@@ -40,6 +44,8 @@ pub struct TestApp {
     pub sms: MemorySms,
     /// Sending use cases, to run a round of the background task by hand.
     pub messaging: Arc<MessagingService>,
+    /// Booking use cases, to run the deposit check by hand (F007).
+    pub bookings: Arc<BookingService>,
     pub pool: MySqlPool,
 }
 
@@ -97,11 +103,19 @@ impl TestApp {
         };
         let mut state = wiring::app_state(
             &pool,
-            policy,
-            throttle,
-            media_dir.path(),
-            media,
-            400,
+            &wiring::StateSettings {
+                policy,
+                throttle,
+                media_dir: media_dir.path().to_path_buf(),
+                media,
+                availability_max_days: 400,
+                bookings: BookingConfig {
+                    payment_provider: PaymentProvider::None,
+                    site_url: SITE_URL.to_owned(),
+                    max_attempts: 5,
+                    attempt_window: Duration::minutes(60),
+                },
+            },
             senders,
         )
         .unwrap();
@@ -109,6 +123,7 @@ impl TestApp {
 
         Self {
             messaging: state.messaging.clone(),
+            bookings: state.bookings.clone(),
             router: router(state),
             _container: container,
             media_dir,

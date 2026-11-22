@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::application::auth::AuthService;
+use crate::application::bookings::BookingService;
 use crate::application::calendar::CalendarService;
 use crate::application::health::DatabaseProbe;
 use crate::application::house_rules::HouseRulesService;
@@ -14,6 +15,7 @@ use crate::application::offers::OffersService;
 use crate::application::pages::PageService;
 use crate::application::pricing::PricingService;
 use crate::application::quote::QuoteService;
+use crate::application::templates::TemplatesService;
 
 /// Application state: the use cases and ports the handlers need.
 #[derive(Clone)]
@@ -28,6 +30,8 @@ pub struct AppState {
     pub offers: Arc<OffersService>,
     pub quotes: Arc<QuoteService>,
     pub messaging: Arc<MessagingService>,
+    pub templates: Arc<TemplatesService>,
+    pub bookings: Arc<BookingService>,
     /// Directory of the public media files, served by the API itself in development only
     /// (`SERVE_MEDIA_FILES`); in production Caddy serves them (ADR-0017).
     pub serve_media_dir: Option<PathBuf>,

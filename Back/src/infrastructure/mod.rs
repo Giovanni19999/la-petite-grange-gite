@@ -1,7 +1,9 @@
 //! Adapters implementing the application ports (database, external providers).
 
 pub mod auth;
+pub mod bookings;
 pub mod calendar;
+pub mod documents;
 pub mod house_rules;
 pub mod images;
 pub mod mariadb;

@@ -3,6 +3,7 @@
 //! Handlers stay thin: extract the request, call a use case, map to a DTO.
 
 pub mod auth;
+pub mod bookings;
 pub mod calendar;
 pub mod error;
 pub mod health;
@@ -36,6 +37,10 @@ pub fn router(state: AppState) -> Router {
         .nest("/api/admin/house-rules", house_rules::admin_routes())
         .nest("/api/admin/offers", offers::admin_routes())
         .nest("/api/admin/messaging", messaging::admin_routes())
+        .nest("/api/admin/bookings", bookings::admin_routes())
+        .nest("/api/admin/payment-info", bookings::payment_routes())
+        .nest("/api/admin/templates", bookings::template_routes())
+        .merge(bookings::public_routes())
         .merge(quote::public_routes());
     // Development only: in production Caddy serves the media files (ADR-0017).
     if let Some(dir) = &state.serve_media_dir {

@@ -129,7 +129,10 @@ impl TouristTax {
     }
 }
 
-/// The house rules of F004.
+/// The house rules of F004 and F007.
+///
+/// The `serde` defaults of the F007 fields only read the history lines written before F007;
+/// the stored rules always have them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HouseRules {
@@ -145,6 +148,43 @@ pub struct HouseRules {
     pub tourist_tax: TouristTax,
     /// Booking horizon of F005, edited on the same screen.
     pub horizon: BookingHorizon,
+    /// Arrival from, in minutes after midnight (F007).
+    #[serde(default)]
+    pub arrival_from: u16,
+    /// Departure before, in minutes after midnight (F007).
+    #[serde(default)]
+    pub departure_before: u16,
+    #[serde(default)]
+    pub pets_allowed: bool,
+    /// The owners are alerted when the deposit is not received after this many days (F007).
+    #[serde(default)]
+    pub deposit_alert_days: u16,
+    /// Page of the site holding the rental terms; booking is closed without it (F007).
+    #[serde(default)]
+    pub terms_page: Option<u64>,
+}
+
+/// Minutes in a day.
+const DAY_MINUTES: u16 = 24 * 60;
+/// Times are chosen by half hours.
+pub const SLOT_MINUTES: u16 = 30;
+
+/// Minutes after midnight → "16:00".
+#[must_use]
+pub fn clock_time(minutes: u16) -> String {
+    format!("{:02}:{:02}", minutes / 60, minutes % 60)
+}
+
+fn valid_time(minutes: u16) -> bool {
+    minutes < DAY_MINUTES && minutes.is_multiple_of(SLOT_MINUTES)
+}
+
+/// Arrival times a guest may choose: every half hour from `arrival_from` to 23:30.
+#[must_use]
+pub fn arrival_slots(arrival_from: u16) -> Vec<u16> {
+    (arrival_from..DAY_MINUTES)
+        .step_by(usize::from(SLOT_MINUTES))
+        .collect()
 }
 
 /// A house rule that cannot be saved.
@@ -170,6 +210,12 @@ pub enum RuleError {
     ExemptAge,
     #[error("réservable : de 1 à {MAX_HORIZON_MONTHS} mois")]
     HorizonMonths,
+    #[error("heure d'arrivée : une heure ronde ou une demi-heure")]
+    ArrivalTime,
+    #[error("heure de départ : une heure ronde ou une demi-heure")]
+    DepartureTime,
+    #[error("alerte d'acompte : de 1 à {MAX_DAYS} jours")]
+    DepositAlertDays,
 }
 
 impl HouseRules {
@@ -210,6 +256,15 @@ impl HouseRules {
         }
         if !(1..=MAX_HORIZON_MONTHS).contains(&self.horizon.months) {
             errors.push(RuleError::HorizonMonths);
+        }
+        if !valid_time(self.arrival_from) {
+            errors.push(RuleError::ArrivalTime);
+        }
+        if !valid_time(self.departure_before) {
+            errors.push(RuleError::DepartureTime);
+        }
+        if !(1..=MAX_DAYS).contains(&self.deposit_alert_days) {
+            errors.push(RuleError::DepositAlertDays);
         }
         if errors.is_empty() {
             Ok(self)
@@ -269,12 +324,39 @@ impl HouseRules {
             format!("moins de {} ans", after.tourist_tax.exempt_under),
         );
         diff("Réservable", horizon(self.horizon), horizon(after.horizon));
+        diff(
+            "Arrivée à partir de",
+            clock_time(self.arrival_from),
+            clock_time(after.arrival_from),
+        );
+        diff(
+            "Départ avant",
+            clock_time(self.departure_before),
+            clock_time(after.departure_before),
+        );
+        diff(
+            "Animaux",
+            yes_no(self.pets_allowed),
+            yes_no(after.pets_allowed),
+        );
+        diff(
+            "Alerte d'acompte",
+            days(self.deposit_alert_days),
+            days(after.deposit_alert_days),
+        );
+        if self.terms_page != after.terms_page {
+            changes.push("Page des conditions de location changée".to_owned());
+        }
         if changes.is_empty() {
             "Règles du gîte enregistrées sans changement".to_owned()
         } else {
             changes.join(" ; ")
         }
     }
+}
+
+fn yes_no(value: bool) -> String {
+    if value { "oui" } else { "non" }.to_owned()
 }
 
 fn days(count: u16) -> String {
@@ -357,6 +439,11 @@ mod tests {
                 months: 24,
                 until: None,
             },
+            arrival_from: 960,
+            departure_before: 600,
+            pets_allowed: false,
+            deposit_alert_days: 7,
+            terms_page: None,
         }
     }
 

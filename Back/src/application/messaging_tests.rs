@@ -247,6 +247,7 @@ fn fixture() -> Fixture {
             store.clone(),
             Arc::new(mailer.clone()),
             Arc::new(sms.clone()),
+            Arc::new(crate::infrastructure::documents::MemoryDocuments::default()),
             clock.clone(),
         ),
         store,
@@ -264,6 +265,7 @@ fn email(key: &str) -> OutgoingMessage {
             subject: "Réservation confirmée".to_owned(),
             text: "Bonjour".to_owned(),
             html: Some("<p>Bonjour</p>".to_owned()),
+            attachments: Vec::new(),
         },
     }
 }

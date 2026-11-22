@@ -262,6 +262,11 @@ mod tests {
                 months: 24,
                 until: None,
             },
+            arrival_from: 960,
+            departure_before: 600,
+            pets_allowed: false,
+            deposit_alert_days: 7,
+            terms_page: None,
         }
     }
 

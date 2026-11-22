@@ -106,6 +106,7 @@ fn email(key: &str) -> OutgoingMessage {
             subject: "Réservation confirmée".to_owned(),
             text: "Bonjour, votre séjour est confirmé.".to_owned(),
             html: Some("<p>Bonjour, votre séjour est <strong>confirmé</strong>.</p>".to_owned()),
+            attachments: Vec::new(),
         },
     }
 }

@@ -1,7 +1,7 @@
 //! Sending settings and queue in `MariaDB` (F025, ADR-0019).
 
 use anyhow::Context;
-use sqlx::{FromRow, MySqlPool};
+use sqlx::{FromRow, MySqlExecutor, MySqlPool};
 use time::{OffsetDateTime, PrimitiveDateTime, UtcOffset};
 
 use crate::application::health::BoxFuture;
@@ -82,6 +82,7 @@ struct MessageRow {
     subject: String,
     body_text: String,
     body_html: Option<String>,
+    attachments: Option<String>,
     status: String,
     attempts: u8,
     last_error: Option<String>,
@@ -98,6 +99,13 @@ impl TryFrom<MessageRow> for QueuedMessage {
                 subject: row.subject,
                 text: row.body_text,
                 html: row.body_html,
+                attachments: row
+                    .attachments
+                    .as_deref()
+                    .map(serde_json::from_str)
+                    .transpose()
+                    .context("invalid attachments stored")?
+                    .unwrap_or_default(),
             },
             Channel::Sms => Content::Sms {
                 text: row.body_text,
@@ -115,6 +123,76 @@ impl TryFrom<MessageRow> for QueuedMessage {
             sent_at: row.sent_at.map(PrimitiveDateTime::assume_utc),
         })
     }
+}
+
+/// Queues a message unless its key is already queued; true if added. Used by other
+/// repositories inside their own transaction (ADR-0019), with the booking it belongs to.
+///
+/// # Errors
+///
+/// Database errors.
+pub(crate) async fn insert_message<'e>(
+    executor: impl MySqlExecutor<'e>,
+    message: &OutgoingMessage,
+    now: OffsetDateTime,
+    booking: Option<u64>,
+) -> anyhow::Result<bool> {
+    let (subject, text, html, attachments) = match &message.content {
+        Content::Email {
+            subject,
+            text,
+            html,
+            attachments,
+        } => (
+            subject.as_str(),
+            text.as_str(),
+            html.as_deref(),
+            (!attachments.is_empty())
+                .then(|| serde_json::to_string(attachments))
+                .transpose()?,
+        ),
+        Content::Sms { text } => ("", text.as_str(), None, None),
+    };
+    let result = sqlx::query(
+        "INSERT IGNORE INTO outgoing_messages (message_key, channel, recipient, subject, \
+         body_text, body_html, attachments, booking_id, status, attempts, next_attempt_at, \
+         created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)",
+    )
+    .bind(&message.key)
+    .bind(message.content.channel().as_str())
+    .bind(&message.recipient)
+    .bind(subject)
+    .bind(text)
+    .bind(html)
+    .bind(attachments)
+    .bind(booking)
+    .bind(to_db(now))
+    .bind(to_db(now))
+    .execute(executor)
+    .await
+    .context("cannot queue the message")?;
+    Ok(result.rows_affected() == 1)
+}
+
+/// Messages of a booking, latest first (F007).
+///
+/// # Errors
+///
+/// Database errors.
+pub(crate) async fn booking_messages<'e>(
+    executor: impl MySqlExecutor<'e>,
+    booking: u64,
+) -> anyhow::Result<Vec<QueuedMessage>> {
+    let rows: Vec<MessageRow> = sqlx::query_as(
+        "SELECT id, message_key, channel, recipient, subject, body_text, body_html, \
+         attachments, status, attempts, last_error, created_at, sent_at \
+         FROM outgoing_messages WHERE booking_id = ? ORDER BY created_at DESC, id DESC",
+    )
+    .bind(booking)
+    .fetch_all(executor)
+    .await
+    .context("cannot read the messages of the booking")?;
+    rows.into_iter().map(QueuedMessage::try_from).collect()
 }
 
 impl MessageStore for MariaDbMessages {
@@ -169,33 +247,7 @@ impl MessageStore for MariaDbMessages {
         message: &'a OutgoingMessage,
         now: OffsetDateTime,
     ) -> BoxFuture<'a, anyhow::Result<bool>> {
-        Box::pin(async move {
-            let (subject, text, html) = match &message.content {
-                Content::Email {
-                    subject,
-                    text,
-                    html,
-                } => (subject.as_str(), text.as_str(), html.as_deref()),
-                Content::Sms { text } => ("", text.as_str(), None),
-            };
-            let result = sqlx::query(
-                "INSERT IGNORE INTO outgoing_messages (message_key, channel, recipient, subject, \
-                 body_text, body_html, status, attempts, next_attempt_at, created_at) \
-                 VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)",
-            )
-            .bind(&message.key)
-            .bind(message.content.channel().as_str())
-            .bind(&message.recipient)
-            .bind(subject)
-            .bind(text)
-            .bind(html)
-            .bind(to_db(now))
-            .bind(to_db(now))
-            .execute(&self.pool)
-            .await
-            .context("cannot queue the message")?;
-            Ok(result.rows_affected() == 1)
-        })
+        Box::pin(async move { insert_message(&self.pool, message, now, None).await })
     }
 
     fn claim_due(
@@ -210,7 +262,8 @@ impl MessageStore for MariaDbMessages {
                 .context("cannot start a transaction")?;
             let row: Option<MessageRow> = sqlx::query_as(
                 "SELECT id, message_key, channel, recipient, subject, body_text, body_html, \
-                 status, attempts, last_error, created_at, sent_at FROM outgoing_messages \
+                 attachments, status, attempts, last_error, created_at, sent_at \
+                 FROM outgoing_messages \
                  WHERE status = 'pending' AND next_attempt_at <= ? \
                  ORDER BY next_attempt_at, id LIMIT 1 FOR UPDATE SKIP LOCKED",
             )
@@ -287,7 +340,8 @@ impl MessageStore for MariaDbMessages {
         Box::pin(async move {
             let rows: Vec<MessageRow> = sqlx::query_as(
                 "SELECT id, message_key, channel, recipient, subject, body_text, body_html, \
-                 status, attempts, last_error, created_at, sent_at FROM outgoing_messages \
+                 attachments, status, attempts, last_error, created_at, sent_at \
+                 FROM outgoing_messages \
                  ORDER BY status IN ('failed', 'to_check') DESC, created_at DESC, id DESC \
                  LIMIT ?",
             )

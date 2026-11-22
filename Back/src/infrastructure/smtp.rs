@@ -76,6 +76,21 @@ impl SmtpMailer {
             None => MultiPart::mixed()
                 .singlepart(lettre::message::SinglePart::plain(email.text.clone())),
         };
+        let body = if email.attachments.is_empty() {
+            body
+        } else {
+            let mut mixed = MultiPart::mixed().multipart(body);
+            for attachment in &email.attachments {
+                let content_type =
+                    lettre::message::header::ContentType::parse(&attachment.content_type)
+                        .map_err(|_| SendError::Attachment)?;
+                mixed = mixed.singlepart(
+                    lettre::message::Attachment::new(attachment.name.clone())
+                        .body(attachment.bytes.clone(), content_type),
+                );
+            }
+            mixed
+        };
         builder.multipart(body).map_err(|_| SendError::Provider)
     }
 
